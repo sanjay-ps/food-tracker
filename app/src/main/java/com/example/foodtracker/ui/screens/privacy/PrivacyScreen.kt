@@ -1,5 +1,11 @@
 package com.example.foodtracker.ui.screens.privacy
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.ExternalLink
+import com.composables.icons.lucide.ScanBarcode
+import com.composables.icons.lucide.Search
+import com.composables.icons.lucide.Sparkles
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,12 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -83,7 +83,7 @@ fun PrivacyScreen(onBack: () -> Unit = {}) {
         ) {
             item("verdict") { Verdict() }
             item("stays") {
-                Section("STAYS HERE") {
+                Section("Stays here") {
                     CheckLine("Everything you log — foods, water, weight")
                     Spacer(Modifier.height(Spacing.s))
                     CheckLine("Your profile, goals and targets")
@@ -94,7 +94,7 @@ fun PrivacyScreen(onBack: () -> Unit = {}) {
             item("leaves") {
                 Section("Leaves only when you tap") {
                     ShareBlock(
-                        icon = Icons.Default.Search,
+                        icon = Lucide.Search,
                         feature = "Search online",
                         badge = "Only on tap",
                         sends = "the words you typed",
@@ -102,7 +102,7 @@ fun PrivacyScreen(onBack: () -> Unit = {}) {
                     )
                     AppDivider()
                     ShareBlock(
-                        icon = Icons.Default.QrCodeScanner,
+                        icon = Lucide.ScanBarcode,
                         feature = "Scan barcode",
                         badge = "Only on scan",
                         sends = "the barcode number",
@@ -110,7 +110,7 @@ fun PrivacyScreen(onBack: () -> Unit = {}) {
                     )
                     AppDivider()
                     ShareBlock(
-                        icon = Icons.Default.AutoAwesome,
+                        icon = Lucide.Sparkles,
                         feature = "AI autofill",
                         badge = "Off by default",
                         sends = "the food name, and any note you add",
@@ -195,7 +195,7 @@ private fun Verdict() {
 @Composable
 private fun VerdictClaim(text: String) {
     Text(
-        text.uppercase(),
+        text,
         style = AppText.eyebrow,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -205,7 +205,7 @@ private fun VerdictClaim(text: String) {
 private fun CheckLine(text: String) {
     Row(verticalAlignment = Alignment.Top) {
         Icon(
-            Icons.Default.Check,
+            Lucide.Check,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp),
@@ -249,7 +249,7 @@ private fun ShareBlock(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                badge.uppercase(),
+                badge,
                 style = AppText.eyebrow,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -266,7 +266,7 @@ private fun ShareBlock(
 private fun FlowLine(label: String, value: String) {
     Row(verticalAlignment = Alignment.Top) {
         Text(
-            label.uppercase(),
+            label,
             style = AppText.eyebrow,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(56.dp),
@@ -337,7 +337,7 @@ private fun LinkRow(label: String, onClick: () -> Unit) {
             modifier = Modifier.weight(1f),
         )
         Icon(
-            Icons.AutoMirrored.Filled.OpenInNew,
+            Lucide.ExternalLink,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(18.dp),

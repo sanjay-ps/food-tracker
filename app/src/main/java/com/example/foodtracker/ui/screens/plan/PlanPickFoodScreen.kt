@@ -1,5 +1,12 @@
 package com.example.foodtracker.ui.screens.plan
 
+import com.example.foodtracker.ui.components.atoms.AppTextField
+import com.example.foodtracker.ui.components.atoms.cardColor
+import androidx.compose.ui.graphics.Color
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Search
+import com.composables.icons.lucide.SlidersHorizontal
+import com.composables.icons.lucide.X
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -7,14 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -80,15 +82,15 @@ fun PlanPickFoodScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            OutlinedTextField(
+            AppTextField(
                 value = query,
                 onValueChange = vm::setQuery,
                 placeholder = { Text("Search ${results.size} foods…", style = AppText.body) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                leadingIcon = { Icon(Lucide.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
                         IconButton(onClick = { vm.setQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                            Icon(Lucide.X, contentDescription = "Clear search")
                         }
                     }
                 },
@@ -96,7 +98,7 @@ fun PlanPickFoodScreen(
                     .fillMaxWidth()
                     .padding(horizontal = Spacing.gutter)
                     .padding(bottom = Spacing.m),
-                shape = RoundedCornerShape(Radius.md),
+                shape = RoundedCornerShape(Radius.pill),
                 singleLine = true,
             )
 
@@ -106,7 +108,7 @@ fun PlanPickFoodScreen(
             // the app claiming it has no foods at all.
             if (results.isEmpty() && query.isNotBlank()) {
                 EmptyState(
-                    icon = Icons.Default.Tune,
+                    icon = Lucide.SlidersHorizontal,
                     title = "No foods match",
                     message = "Nothing on this phone matches \"$query\". Add it as a " +
                         "custom food from the Log screen first, and it will be " +

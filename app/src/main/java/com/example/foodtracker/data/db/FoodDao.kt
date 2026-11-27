@@ -48,6 +48,13 @@ interface FoodDao {
     @Query("SELECT * FROM foods WHERE is_hidden = 0 ORDER BY name COLLATE NOCASE ASC")
     fun observeAll(): Flow<List<FoodEntity>>
 
+    /** The first [limit] foods A–Z: the picker loads the catalogue a page at a time. */
+    @Query("SELECT * FROM foods WHERE is_hidden = 0 ORDER BY name COLLATE NOCASE ASC LIMIT :limit")
+    fun observeAllPaged(limit: Int): Flow<List<FoodEntity>>
+
+    @Query("SELECT COUNT(*) FROM foods WHERE is_hidden = 0")
+    fun observeVisibleCount(): Flow<Int>
+
     @Query(
         """
         SELECT * FROM foods
@@ -167,6 +174,10 @@ interface FoodDao {
 
 @Dao
 interface FoodLogDao {
+    /** Every day with at least one entry, oldest first — streaks read this. */
+    @Query("SELECT DISTINCT date_epoch_day FROM food_log ORDER BY date_epoch_day ASC")
+    fun observeLoggedDays(): Flow<List<Long>>
+
     @Transaction
     @Query("SELECT * FROM food_log WHERE date_epoch_day = :epochDay ORDER BY logged_at_millis ASC")
     fun observeForDay(epochDay: Long): Flow<List<FoodLogWithFood>>

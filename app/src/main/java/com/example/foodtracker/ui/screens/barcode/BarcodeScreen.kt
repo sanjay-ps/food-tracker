@@ -1,5 +1,10 @@
 package com.example.foodtracker.ui.screens.barcode
 
+import com.example.foodtracker.ui.components.ExclusiveButtonGroup
+import com.example.foodtracker.ui.components.atoms.AppTextField
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.ScanBarcode
+import com.composables.icons.lucide.SearchX
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,14 +24,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
+import com.example.foodtracker.ui.components.atoms.AppModalSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -55,7 +56,6 @@ import com.example.foodtracker.data.NutritionBasis
 import com.example.foodtracker.data.ServingVariant
 import com.example.foodtracker.ui.appViewModel
 import com.example.foodtracker.ui.components.EmptyState
-import com.example.foodtracker.ui.components.HapticFilterChip
 import com.example.foodtracker.ui.components.atoms.AppButton
 import com.example.foodtracker.ui.components.atoms.AppOutlinedButton
 import com.example.foodtracker.ui.components.atoms.AppTextButton
@@ -393,24 +393,18 @@ private fun BasisBlock(
                 NutritionBasis.PerServing -> perServing != null
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            available.forEach { option ->
-                HapticFilterChip(
-                    selected = option == basis,
-                    onClick = { if (option != basis) onBasisChange(option) },
-                    label = {
-                        Text(
-                            when (option) {
-                                NutritionBasis.Per100g -> "Per 100 g"
-                                NutritionBasis.PerServing ->
-                                    "Per ${product.servingGrams.toInt()} g"
-                            },
-                            maxLines = 1,
-                        )
-                    },
-                )
-            }
-        }
+        // A two-way switch, so the segmented control every other two-way choice uses.
+        ExclusiveButtonGroup(
+            options = available,
+            selected = basis,
+            onSelect = onBasisChange,
+            label = { option ->
+                when (option) {
+                    NutritionBasis.Per100g -> "Per 100 g"
+                    NutritionBasis.PerServing -> "Per ${product.servingGrams.toInt()} g"
+                }
+            },
+        )
         val note = basisNote(product)
         if (note != null) {
             Spacer(Modifier.height(Spacing.s))
@@ -475,7 +469,7 @@ private fun NotFoundSheet(
     onRetry: () -> Unit,
     onAddManually: () -> Unit,
 ) {
-    ModalBottomSheet(
+    AppModalSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -490,7 +484,7 @@ private fun NotFoundSheet(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             EmptyState(
-                icon = Icons.Default.SearchOff,
+                icon = Lucide.SearchX,
                 title = "Product not found",
                 message = message
                     ?: "OpenFoodFacts and USDA both came back empty for ${barcode ?: "this code"}.",
@@ -525,7 +519,7 @@ private fun ManualCodeDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) 
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         title = { Text("Enter barcode", style = AppText.titleL) },
         text = {
-            OutlinedTextField(
+            AppTextField(
                 value = code,
                 onValueChange = { entered -> code = entered.filter { it.isDigit() }.take(14) },
                 placeholder = { Text("8901234567890") },
@@ -560,7 +554,7 @@ private fun PermissionPrompt(onGrant: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         EmptyState(
-            icon = Icons.Default.QrCodeScanner,
+            icon = Lucide.ScanBarcode,
             title = "Camera access needed",
             message = "Scanning reads the barcode on the device. Nothing is recorded, and only the code itself is ever sent to look the product up.",
             action = { AppButton(text = "Allow camera", onClick = onGrant) },

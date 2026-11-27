@@ -1,5 +1,7 @@
 package com.example.foodtracker.ui.components
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.ArrowLeft
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,14 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import com.example.foodtracker.ui.components.atoms.AppModalSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -89,7 +89,7 @@ fun NutrientContributionSheet(
     onDismiss: () -> Unit,
     onFindRichFoods: ((String) -> Unit)? = null,
 ) {
-    ModalBottomSheet(
+    AppModalSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -167,7 +167,7 @@ fun NutrientContributionContent(
                                 modifier = Modifier.padding(end = Spacing.xs),
                             ) {
                                 Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    Lucide.ArrowLeft,
                                     contentDescription = "Back to all nutrients",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

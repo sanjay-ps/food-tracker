@@ -1,5 +1,6 @@
 package com.example.foodtracker.ui.components.sheets
 
+import com.example.foodtracker.domain.MealTiming
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,6 +77,7 @@ fun EntryEditSheet(
         mutableStateOf(StyleOption.find(food.styleOptions, log.style))
     }
     var oilAmount by remember(log.id) { mutableStateOf(OilAmount.fromName(log.oilAmount)) }
+    var eatenAt by remember(log.id) { mutableStateOf(MealTiming.timeOf(log.loggedAtMillis, DateUtil.zoneId())) }
 
     // Provenance, not decoration: the sheet is identical to the logging one, so
     // the time this entry was written is the only thing on screen saying you
@@ -108,12 +110,15 @@ fun EntryEditSheet(
                     oil = oil?.name,
                     style = style?.label,
                     oilAmount = oilAmount?.name,
+                    loggedAtMillis = MealTiming.toMillis(log.dateEpochDay, eatenAt, DateUtil.zoneId()),
                 )
             )
             onDismiss()
         },
         onDismiss = onDismiss,
         confirmText = "Save changes",
+        eatenAt = eatenAt,
+        onEatenAtChange = { eatenAt = it },
         subtitle = "${MealType.fromName(log.mealType).displayName} · $loggedAt",
         oil = oil,
         onOilChange = { oil = it },

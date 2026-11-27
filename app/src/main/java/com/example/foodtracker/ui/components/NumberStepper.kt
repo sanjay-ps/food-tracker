@@ -1,5 +1,8 @@
 package com.example.foodtracker.ui.components
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Minus
+import com.composables.icons.lucide.Plus
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,13 +10,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.foundation.shape.CircleShape
+import com.example.foodtracker.ui.components.atoms.softFill
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -80,7 +82,7 @@ fun NumberStepper(
         StepButton(
             onClick = { haptics.light(); onDecrement() },
             enabled = decrementEnabled,
-            icon = Icons.Default.Remove,
+            icon = Lucide.Minus,
             label = "Decrease",
         )
         Box(
@@ -90,7 +92,7 @@ fun NumberStepper(
         StepButton(
             onClick = { haptics.light(); onIncrement() },
             enabled = incrementEnabled,
-            icon = Icons.Default.Add,
+            icon = Lucide.Plus,
             label = "Increase",
         )
     }
@@ -162,22 +164,16 @@ private fun StepButton(
     label: String,
 ) {
     val scheme = MaterialTheme.colorScheme
-    OutlinedIconButton(
+    FilledIconButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.size(36.dp),
-        shape = RoundedCornerShape(Radius.sm),
-        colors = IconButtonDefaults.outlinedIconButtonColors(
-            containerColor = Color.Transparent,
+        modifier = Modifier.size(40.dp),
+        shape = CircleShape,
+        colors = IconButtonDefaults.filledIconButtonColors(
+            containerColor = softFill(),
             contentColor = scheme.onSurface,
+            disabledContainerColor = softFill().copy(alpha = 0.5f),
             disabledContentColor = scheme.onSurfaceVariant.copy(alpha = 0.38f),
-        ),
-        border = BorderStroke(
-            Elevation.hairline,
-            // A disabled key keeps its edge, faded: a button that loses its
-            // outline at the end of a range reads as having disappeared, and
-            // the gap it leaves shifts the number off centre.
-            if (enabled) scheme.outlineVariant else scheme.outlineVariant.copy(alpha = 0.38f),
         ),
     ) {
         Icon(icon, contentDescription = label, modifier = Modifier.size(18.dp))

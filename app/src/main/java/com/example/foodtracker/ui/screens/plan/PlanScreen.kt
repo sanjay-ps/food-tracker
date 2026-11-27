@@ -1,5 +1,7 @@
 package com.example.foodtracker.ui.screens.plan
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Plus
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -246,7 +246,7 @@ private fun AddFoodRow(slot: PlanSlot, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            Icons.Default.Add,
+            Lucide.Plus,
             contentDescription = null,
             tint = scheme.primary,
             modifier = Modifier.size(18.dp),

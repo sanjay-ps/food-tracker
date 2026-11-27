@@ -1,5 +1,7 @@
 package com.example.foodtracker.ui.screens.today.components
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.ChevronRight
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -65,7 +65,7 @@ fun StatRow(
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                label.uppercase(),
+                label,
                 style = AppText.eyebrow,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -98,7 +98,7 @@ fun StatRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                Lucide.ChevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),

@@ -1,5 +1,6 @@
 package com.example.foodtracker.ui.screens.reminders
 
+import com.example.foodtracker.ui.components.atoms.AppSwitch
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -18,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -212,7 +212,7 @@ private fun ReminderRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                config.kind.title.uppercase(),
+                config.kind.title,
                 style = AppText.eyebrow,
                 color = scheme.onSurfaceVariant,
             )
@@ -230,7 +230,7 @@ private fun ReminderRow(
             color = if (config.enabled) scheme.onSurface else scheme.onSurfaceVariant,
         )
         Spacer(Modifier.width(Spacing.m))
-        Switch(
+        AppSwitch(
             checked = config.enabled,
             onCheckedChange = {
                 haptics.light()

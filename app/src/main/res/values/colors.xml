@@ -3,24 +3,16 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- Launcher icon layers. The foreground is AppPrimary, kept in sync with
-         ui/theme/Color.kt so the mark moves with the palette instead of
-         stranding an old accent on the home screen. The background is black
-         rather than the old primaryContainer tile: the app canvas is black and
-         house rule 3 keeps the accent for data, so the icon says the same. -->
-    <color name="ic_launcher_foreground">#FF63D2B0</color>
-    <color name="ic_launcher_background">#FF000000</color>
+    <!-- Launcher icon: a bowl with a tick for steam, on an ink tile; this is the tick. -->
+    <color name="ic_launcher_foreground">#FF2FBF8A</color>
+    <color name="ic_launcher_background">#FF121214</color>
 
-    <!-- The shade tints a notification's small icon and app name with this.
-         Without it the system picks its own default, which made the reminder
-         the last surface in the app showing a non-palette accent. Same value as
-         AppPrimary and ic_launcher_foreground; all three move together. -->
-    <color name="notification_accent">#FF63D2B0</color>
+    <!-- Tints the notification small icon and app name; same as the accent. -->
+    <color name="notification_accent">#FFF2663A</color>
 
-    <!-- Window + splash background. Black, because the app's canvas is black:
-         anything else is a flash of a colour the app does not contain. There is
-         no values-night override any more — the app is dark-only, so one table
-         is correct in both system modes. -->
-    <color name="launcher_background">#FF000000</color>
-    <color name="splash_background">#FF000000</color>
+    <!-- Window background: the canvas colour (night override in values-night).
+         The splash stays light in both themes. -->
+    <color name="launcher_background">#FFF4F4F7</color>
+    <color name="splash_background">#FFF4F4F7</color>
+    <bool name="light_system_bars">true</bool>
 </resources>

@@ -4,109 +4,143 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.googlefonts.Font
+import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.ui.unit.sp
+import com.example.foodtracker.R
 
 /**
- * The type scale.
+ * The type scale: **Manrope** for headlines and numbers, **Inter** for text.
  *
- * Nine styles, all on `FontFamily.Default`: a bundled font was refused because
- * the repo had just shipped "Trim the APK" and Inter costs ~300KB
- * of it back. Every numeric style instead carries `fontFeatureSettings = "tnum"`,
- * which is what actually matters — tabular figures stop the digits jittering as
- * a meter or ring animates its value.
+ * One style per job — pick by role, never by size:
  *
- * The canvas is quiet and the numbers are loud: a tracker is read in two-second
- * glances, so the only thing allowed to be big is a number.
+ * | Role | Style |
+ * |---|---|
+ * | The closing quote on Today | `quote` |
+ * | The one hero figure on a screen | `numberXXL` |
+ * | A sheet's live readout | `numberXL` |
+ * | A figure in a card | `numberL` |
+ * | A figure in a dense row/grid | `numberM` |
+ * | Page title (tabs, onboarding) | `headline` |
+ * | Sheet title | `titleL` |
+ * | Card title, list item, pushed-page title | `titleM` |
+ * | Paragraphs, inputs | `body` |
+ * | Secondary lines, captions, units | `bodyS` |
+ * | Buttons | `button` |
+ * | Chips, tabs, pills | `label` |
+ * | Label above a figure or field | `eyebrow` |
+ *
+ * Both are Google *downloadable* fonts — fetched once by Play Services and
+ * shared across apps, so they cost the APK nothing. Until the download lands
+ * (or on a device without Play Services) the system font stands in.
+ *
+ * Every numeric style carries `tnum` so digits don't jitter while a value
+ * animates.
  */
+
+private val provider = GoogleFont.Provider(
+    providerAuthority = "com.google.android.gms.fonts",
+    providerPackage = "com.google.android.gms",
+    certificates = R.array.com_google_android_gms_fonts_certs,
+)
+
+private fun family(name: String, vararg weights: FontWeight) = FontFamily(
+    weights.map { Font(googleFont = GoogleFont(name), fontProvider = provider, weight = it) }
+)
+
+val DisplayFont = family(
+    "Manrope", FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold, FontWeight.ExtraBold,
+)
+val TextFont = family(
+    "Inter", FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold,
+)
 
 private const val TNUM = "tnum"
 
 object AppText {
-    /**
-     * The one number the screen exists for.
-     *
-     * Direction B's whole character is an oversized numeral against tiny
-     * uppercase labels, and 40sp was not oversized — it was merely large. At
-     * 64/60 with tight tracking the figure carries the screen on its own, which
-     * is what lets the ring around it go away.
-     */
+    /** The one number a screen exists for. */
     val numberXXL = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold,
-        fontSize = 64.sp, lineHeight = 60.sp, letterSpacing = (-2).sp,
+        fontFamily = DisplayFont, fontWeight = FontWeight.ExtraBold,
+        fontSize = 52.sp, lineHeight = 56.sp, letterSpacing = (-1.5).sp,
         fontFeatureSettings = TNUM,
     )
 
-    /** Section numbers — stat values, meal totals. */
     val numberXL = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold,
-        fontSize = 40.sp, lineHeight = 44.sp, fontFeatureSettings = TNUM,
+        fontFamily = DisplayFont, fontWeight = FontWeight.ExtraBold,
+        fontSize = 36.sp, lineHeight = 40.sp, letterSpacing = (-0.8).sp,
+        fontFeatureSettings = TNUM,
     )
 
-    /** Screen headline numbers. */
     val numberL = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp, lineHeight = 32.sp, fontFeatureSettings = TNUM,
+        fontFamily = DisplayFont, fontWeight = FontWeight.Bold,
+        fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = (-0.3).sp,
+        fontFeatureSettings = TNUM,
     )
 
-    /** Stat tiles, nutrient values. */
     val numberM = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold,
-        fontSize = 18.sp, lineHeight = 24.sp, fontFeatureSettings = TNUM,
+        fontFamily = DisplayFont, fontWeight = FontWeight.Bold,
+        fontSize = 17.sp, lineHeight = 22.sp, fontFeatureSettings = TNUM,
+    )
+
+    /** The big closing line at the foot of Today. */
+    val quote = TextStyle(
+        fontFamily = DisplayFont, fontWeight = FontWeight.ExtraBold,
+        fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1.2).sp,
+    )
+
+    /** Page headings — "Today", "Trends". */
+    val headline = TextStyle(
+        fontFamily = DisplayFont, fontWeight = FontWeight.ExtraBold,
+        fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.6).sp,
     )
 
     /** Screen and sheet titles. */
     val titleL = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp, lineHeight = 28.sp,
+        fontFamily = DisplayFont, fontWeight = FontWeight.Bold,
+        fontSize = 20.sp, lineHeight = 26.sp, letterSpacing = (-0.2).sp,
     )
 
     /** Card titles, food names. */
     val titleM = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold,
+        fontFamily = DisplayFont, fontWeight = FontWeight.Bold,
         fontSize = 16.sp, lineHeight = 22.sp,
     )
 
-    /** Primary reading size — up from the old 14. */
     val body = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal,
+        fontFamily = TextFont, fontWeight = FontWeight.Normal,
         fontSize = 15.sp, lineHeight = 22.sp,
     )
 
-    /** Secondary lines. Numeric, so it gets tnum too. */
     val bodyS = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal,
+        fontFamily = TextFont, fontWeight = FontWeight.Normal,
         fontSize = 13.sp, lineHeight = 18.sp, fontFeatureSettings = TNUM,
     )
 
-    /** Chips, buttons. */
+    /** Buttons. */
+    val button = TextStyle(
+        fontFamily = TextFont, fontWeight = FontWeight.SemiBold,
+        fontSize = 15.sp, lineHeight = 20.sp,
+    )
+
+    /** Chips, tabs, pills. */
     val label = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium,
+        fontFamily = TextFont, fontWeight = FontWeight.SemiBold,
         fontSize = 13.sp, lineHeight = 18.sp,
     )
 
-    /** Section headers. Always rendered UPPERCASE by the caller. */
-    /**
-     * Section headers, always UPPERCASE.
-     *
-     * Tracking is 1.2sp, not the 0.5sp this started at: at 11sp a half-point of
-     * letterspacing is invisible, and the letterspaced micro-label is half of
-     * what makes Direction B read as editorial rather than as small grey text.
-     */
+    /** Small field labels — "Spent this week", "Protein". */
     val eyebrow = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium,
-        fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 1.2.sp,
+        fontFamily = TextFont, fontWeight = FontWeight.Medium,
+        fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.1.sp,
     )
 }
 
-/**
- * Material slots pointed at the nine styles so stock components inherit them.
- * Reach for [AppText] directly when a slot would be a lie about intent.
- */
+/** Material slots pointed at the styles above so stock components inherit them. */
 val Typography = Typography(
     displayLarge = AppText.numberXXL,
     displayMedium = AppText.numberL,
     displaySmall = AppText.numberM,
-    headlineLarge = AppText.numberL,
+    headlineLarge = AppText.headline,
     headlineMedium = AppText.numberM,
     headlineSmall = AppText.titleL,
     titleLarge = AppText.titleL,

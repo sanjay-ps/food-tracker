@@ -1,5 +1,8 @@
 package com.example.foodtracker.ui.screens.trends.components
 
+import com.composables.icons.lucide.ChevronRight
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -80,62 +83,15 @@ data class ChartInsight(
 )
 
 /**
- * One section of Trends: a standing head, its reading, its chart.
+ * One section of Trends: a [com.example.foodtracker.ui.components.atoms.Section]
+ * card with the window's summary in the head, the headline reading, the chart,
+ * and footer links.
  *
- * **The card is gone.** This used to wrap everything in an `AppCard` — a 20dp
- * rounded hairline box — and five of them stacked down the page was the exact
- * Direction A anatomy the editorial pass exists to remove (house rule 1). The
- * section is a `Section` now: an uppercase head with the summary figure on its
- * baseline, a hairline **under the head**, then the content, open to the page.
- * The border is not replaced by a gap — house rule 1 is explicit that 32dp of
- * whitespace was the weakest and most expensive separator available — it is
- * replaced by that 1dp rule, and the gap between sections comes *down* to 24dp.
- *
- * Losing the box also gave the charts back the 16dp of inset the card took on
- * each side, which a 30-column heatmap and a 30-bar macro stack both spend on
- * data: both size themselves to whatever width they are handed.
- *
- * The name survives the card because the call sites, the ViewModel's docstrings
- * and the rewrite all talk about Trends in cards; what changed is the
- * anatomy, not what a reader of this screen calls each block.
- *
- * Five things it still standardises, each of which was being decided per screen
- * before `ProgressSection`/`WaterSection`/`WeightSection` were unified:
- *
- *  - **The summary figure.** [summary] is the one line in the head's trailing
- *    slot — "2 981 kcal avg", "72.4 kg now" — so every section on Trends states
- *    what its window amounts to in the same place, at the same size, as Today's
- *    "2 981 kcal" and "18 of 29 on track".
- *  - **The reading.** [insight] is the loud line under the rule: the verdict
- *    the summary figure earns, set as a number rather than as prose.
- *  - **Empty.** [empty] is the rule in one parameter: under two points, a
- *    section keeps its head and shows a single muted line instead of its chart.
- *    Sections degrade one by one — a fortnight of weigh-ins with no water
- *    logged should cost you the water chart and nothing else — and that only
- *    stays true if no caller is tempted to hide the whole block.
- *  - **Loading.** There isn't one. A range change recomputes off a Room flow
- *    that is already warm; a spinner would flash for two frames and leave the
- *    page jumping. [crossfadeKey] dissolves the chart through the change
- *    instead: keep the previous chart on screen and crossfade. No
- *    spinner"). Both layers of the fade draw the *new* series rather than one
- *    drawing the old one — holding a second copy of a 365-point series alive
- *    purely to fade it out is not worth the frame it would buy, and what the
- *    eye reads either way is a soft swap instead of a jump.
- *  - **The foot.** A hairline, then [actionLabel] and whatever [footer]
- *    expands — the weight section's history, the heatmap's "show all".
- *
- * **Why the action moved out of the head.** [actionLabel] used to be an
- * `AppTextButton` in the header's trailing slot. That slot now belongs to the
- * summary figure, and house rule 1 wants every head to be the same object: a
- * 48dp pill parked in two of the five heads made those two heads three times
- * the height of the other three, and the rule under them stopped scanning as
- * one repeated element. At the foot it is a text link beside the section's
- * other link, which is where "what else can I do with this" already lives on
- * Today.
- *
- * @param crossfadeKey when non-null, [content] crossfades whenever this value
- *        changes. Pass the selected range; pass null for content that must not
- *        animate (anything that owns scroll or drag state of its own).
+ *  - [summary] — the head's right-hand figure ("2 981 kcal avg").
+ *  - [insight] — the verdict as a number under the head.
+ *  - [empty] — under two points, a single muted line replaces the chart.
+ *  - [crossfadeKey] — when non-null the chart crossfades as it changes (pass
+ *    the range); null for content that owns its own scroll or drag state.
  */
 @Composable
 fun ChartCard(
@@ -209,7 +165,7 @@ private fun InsightLine(insight: ChartInsight) {
     val scheme = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth()) {
         Text(
-            insight.label.uppercase(),
+            insight.label,
             style = AppText.eyebrow,
             color = scheme.onSurfaceVariant,
         )
@@ -220,7 +176,7 @@ private fun InsightLine(insight: ChartInsight) {
                 style = AppText.numberL,
                 color = when (insight.tone) {
                     InsightTone.Neutral -> scheme.onSurface
-                    InsightTone.OnTrack -> scheme.primary
+                    InsightTone.OnTrack -> scheme.secondary
                     InsightTone.Over -> scheme.error
                 },
             )
@@ -259,15 +215,26 @@ private fun InsightLine(insight: ChartInsight) {
  */
 @Composable
 fun SectionLink(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Text(
-        text,
-        style = AppText.label,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = modifier
+    androidx.compose.foundation.layout.Row(
+        modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = Spacing.l),
-    )
+            .padding(vertical = Spacing.m + 2.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        Text(
+            text,
+            style = AppText.label,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        androidx.compose.material3.Icon(
+            com.composables.icons.lucide.Lucide.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+    }
 }
 
 /**

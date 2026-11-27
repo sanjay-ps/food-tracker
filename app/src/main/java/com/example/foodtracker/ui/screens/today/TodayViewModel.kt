@@ -1,5 +1,7 @@
 package com.example.foodtracker.ui.screens.today
 
+import com.example.foodtracker.domain.Streak
+import com.example.foodtracker.domain.streakOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.foodtracker.data.FoodRepository
@@ -49,6 +51,8 @@ data class TodayUiState(
      * this flips, then crossfades.
      */
     val loaded: Boolean = true,
+    /** Calories per day, Monday first, for the week holding [epochDay]. */
+    val weekKcal: List<Double> = List(7) { 0.0 },
 ) {
     val totalNutrients: Nutrients = logs.fold(Nutrients.Zero) { acc, row ->
         acc + row.nutrients()
@@ -123,11 +127,13 @@ class TodayViewModel(
             // that used to share that holder existed for the quick-log row, which
             // is gone — every write to the diary now goes through the serving
             // sheet, so Home no longer needs a food list of its own.
+            val weekStart = weekStartOf(day)
             combine(
                 coreFlow,
                 repository.observeLatestWeight(),
                 repository.observePlan(),
-            ) { core, weight, plan ->
+                repository.observeLogForRange(weekStart, weekStart + 6),
+            ) { core, weight, plan, weekLogs ->
                 TodayUiState(
                     epochDay = day,
                     profile = core.profile,
@@ -136,6 +142,7 @@ class TodayViewModel(
                     waterMl = core.water,
                     plan = plan,
                     latestWeight = weight,
+                    weekKcal = dailyKcal(weekStart, weekLogs),
                 )
             }
         }
@@ -151,6 +158,33 @@ class TodayViewModel(
                 loaded = false,
             ),
         )
+
+    /**
+     * Streak and the "Your rhythm" heatmap. Independent of the day on screen,
+     * so paging through days does not recompute 18 weeks of totals.
+     */
+    val history: StateFlow<HistoryState> = combine(
+        repository.observeLoggedDays(),
+        // shortcut: the window is fixed when the ViewModel is created, so an app left open
+        // across midnight shows yesterday's window until Today is reopened; key it on the date if that matters.
+        repository.observeLogForRange(heatStart(), DateUtil.todayEpochDay()),
+        profileStore.profile,
+    ) { days, logs, profile ->
+        val start = heatStart()
+        val today = DateUtil.todayEpochDay()
+        val kcal = DoubleArray((today - start + 1).toInt())
+        logs.forEach { row ->
+            val i = (row.log.dateEpochDay - start).toInt()
+            if (i in kcal.indices) kcal[i] += row.nutrients().calories
+        }
+        HistoryState(
+            streak = streakOf(days, today),
+            heatStart = start,
+            heatKcal = kcal.toList(),
+            goalKcal = GoalCalculator.goalsFor(profile).calories,
+            loggedDays = days.toHashSet(),
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryState())
 
     /** Jump straight to a day (the new DayStrip picks one, it doesn't step). */
     fun setDay(epochDay: Long) {
@@ -217,3 +251,32 @@ class TodayViewModel(
     }
 }
 
+
+/** The Monday on or before [epochDay]. */
+internal fun weekStartOf(epochDay: Long): Long =
+    epochDay - (DateUtil.epochDayToDate(epochDay).dayOfWeek.value - 1)
+
+/** Seven calorie totals, one per day from [weekStart]. */
+internal fun dailyKcal(weekStart: Long, logs: List<FoodLogWithFood>): List<Double> {
+    val totals = DoubleArray(7)
+    logs.forEach { row ->
+        val i = (row.log.dateEpochDay - weekStart).toInt()
+        if (i in 0..6) totals[i] += row.nutrients().calories
+    }
+    return totals.toList()
+}
+
+/** Weeks shown in the heatmap. */
+const val HEAT_WEEKS = 18
+
+/** The Monday [HEAT_WEEKS] weeks back, so the grid's columns are whole weeks. */
+internal fun heatStart(): Long = weekStartOf(DateUtil.todayEpochDay()) - (HEAT_WEEKS - 1) * 7L
+
+data class HistoryState(
+    val streak: Streak = Streak(0, 0),
+    val heatStart: Long = heatStart(),
+    /** Calories per day from [heatStart] through today. */
+    val heatKcal: List<Double> = emptyList(),
+    val goalKcal: Double = 0.0,
+    val loggedDays: Set<Long> = emptySet(),
+)

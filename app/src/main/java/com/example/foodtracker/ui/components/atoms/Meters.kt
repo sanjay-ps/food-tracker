@@ -1,5 +1,6 @@
 package com.example.foodtracker.ui.components.atoms
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -42,7 +43,7 @@ import com.example.foodtracker.ui.theme.Elevation
  * jitter for the whole animation.
  */
 
-private const val ANIM_MS = 450
+private const val ANIM_MS = 600
 
 /**
  * One goal- and limit-aware linear meter.
@@ -58,19 +59,20 @@ fun Meter(
     fraction: Float,
     color: Color,
     modifier: Modifier = Modifier,
-    height: Dp = 3.dp,
+    height: Dp = 6.dp,
     capAt: Float? = null,
     animate: Boolean = true,
 ) {
     val target = fraction.coerceIn(0f, 1f)
     val value by animateFloatAsState(
         targetValue = target,
-        animationSpec = tween(if (animate) ANIM_MS else 0),
+        animationSpec = tween(if (animate) ANIM_MS else 0, easing = FastOutSlowInEasing),
         label = "meter",
     )
-    val track = MaterialTheme.colorScheme.outlineVariant
+    val track = MaterialTheme.colorScheme.surfaceContainerHigh
     val tick = MaterialTheme.colorScheme.outline
-    Canvas(modifier = modifier.fillMaxWidth().height(height)) {
+    // Never a hairline: the softer look wants a bar you can see at a glance.
+    Canvas(modifier = modifier.fillMaxWidth().height(height.coerceAtLeast(5.dp))) {
         val r = size.height / 2f
         drawRoundRect(color = track, size = size, cornerRadius = CornerRadius(r, r))
         if (value > 0f) {
@@ -105,13 +107,13 @@ fun Ring(
     modifier: Modifier = Modifier,
     diameter: Dp = 140.dp,
     stroke: Dp = 14.dp,
-    color: Color = MaterialTheme.colorScheme.primary,
-    trackColor: Color = MaterialTheme.colorScheme.outlineVariant,
+    color: Color = MaterialTheme.colorScheme.secondary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     content: @Composable () -> Unit,
 ) {
     val value by animateFloatAsState(
         targetValue = fraction.coerceIn(0f, 1f),
-        animationSpec = tween(ANIM_MS),
+        animationSpec = tween(ANIM_MS * 2, easing = FastOutSlowInEasing),
         label = "ring",
     )
     Box(modifier.size(diameter), contentAlignment = Alignment.Center) {

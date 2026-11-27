@@ -1,5 +1,19 @@
 package com.example.foodtracker.ui.screens.you
 
+import com.example.foodtracker.ui.components.OptionList
+import com.example.foodtracker.ui.theme.Pastel
+import com.example.foodtracker.ui.components.atoms.PastelIcon
+import com.example.foodtracker.ui.components.atoms.AppButton
+import com.composables.icons.lucide.RotateCcw
+import com.composables.icons.lucide.Eraser
+import com.composables.icons.lucide.Cloud
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.clickable
+import android.app.ActivityManager
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Trash2
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -12,8 +26,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -115,6 +127,39 @@ fun DataBackupScreen(onBack: () -> Unit) {
 
     var pendingRestore by remember { mutableStateOf<LocalBackup?>(null) }
     var confirmImport by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    if (confirmClear) {
+        ConfirmDialog(
+            title = "Clear your diary?",
+            body = "Every meal, water and weight entry will be deleted. Your profile, targets, " +
+                "custom foods and plan stay. This can't be undone — export first to keep a copy.",
+            confirmLabel = "Clear diary",
+            onConfirm = {
+                confirmClear = false
+                vm.clearDiary()
+            },
+            onDismiss = { confirmClear = false },
+        )
+    }
+    if (confirmReset) {
+        ConfirmDialog(
+            title = "Reset the app?",
+            body = "Everything on this phone is erased — diary, profile, custom foods, " +
+                "reminders and settings — and the app closes. Open it again to start fresh. " +
+                "Backups you exported to Drive or a folder are not touched.",
+            confirmLabel = "Erase everything",
+            onConfirm = {
+                confirmReset = false
+                // Android's own "Clear storage": wipes the database, settings and
+                // files, cancels alarms and jobs, and stops the app.
+                context.getSystemService(ActivityManager::class.java).clearApplicationUserData()
+            },
+            onDismiss = { confirmReset = false },
+        )
+    }
 
     pendingRestore?.let { backup ->
         ConfirmDialog(
@@ -156,8 +201,56 @@ fun DataBackupScreen(onBack: () -> Unit) {
                 bottom = Spacing.xxxl,
             ),
             // 24dp — the hairline under each head does the separating now.
-            verticalArrangement = Arrangement.spacedBy(Spacing.xxl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
+            item("drive") {
+                Section("Google Drive") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PastelIcon(Lucide.Cloud, Pastel.Sky)
+                        Spacer(Modifier.width(Spacing.m))
+                        Text(
+                            "Save a full copy — foods, diary, water, weight and profile — to " +
+                                "Google Drive, or bring one back. In the picker, choose Drive " +
+                                "(or any folder).",
+                            style = AppText.bodyS,
+                            color = scheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Spacer(Modifier.height(Spacing.l))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+                    ) {
+                        AppButton(
+                            text = "Export",
+                            onClick = {
+                                haptics.light()
+                                exportLauncher.launch(defaultExportFilename())
+                            },
+                            enabled = !state.busy,
+                            modifier = Modifier.weight(1f),
+                        )
+                        AppOutlinedButton(
+                            text = "Import",
+                            onClick = {
+                                haptics.light()
+                                confirmImport = true
+                            },
+                            enabled = !state.busy,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Spacer(Modifier.height(Spacing.s))
+                    Text(
+                        "Import replaces everything here with the file's contents. The file is " +
+                            "plain JSON you can open and read; nothing is sent anywhere but where you save it.",
+                        style = AppText.bodyS,
+                        color = scheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             item("auto") {
                 Section(
                     title = "Automatic backup",
@@ -237,41 +330,6 @@ fun DataBackupScreen(onBack: () -> Unit) {
                 }
             }
 
-            item("manual") {
-                Section("Manual snapshot") {
-                    Text(
-                        "A full copy of everything: foods, diary, water, weight and your " +
-                            "profile. Import replaces all of it.",
-                        style = AppText.bodyS,
-                        color = scheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(Spacing.l))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-                    ) {
-                        AppOutlinedButton(
-                            text = "Export",
-                            onClick = {
-                                haptics.light()
-                                exportLauncher.launch(defaultExportFilename())
-                            },
-                            enabled = !state.busy,
-                            modifier = Modifier.weight(1f),
-                        )
-                        AppOutlinedButton(
-                            text = "Import",
-                            onClick = {
-                                haptics.light()
-                                confirmImport = true
-                            },
-                            enabled = !state.busy,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-            }
-
             item("analysis") {
                 Section("Export logs for AI") {
                     Text(
@@ -282,11 +340,11 @@ fun DataBackupScreen(onBack: () -> Unit) {
                         color = scheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(Spacing.l))
-                    ExclusiveButtonGroup(
+                    OptionList(
                         options = AnalysisRange.entries,
                         selected = analysisRange,
                         onSelect = { analysisRange = it },
-                        modifier = Modifier.fillMaxWidth(),
+                        caption = { "${it.days} days of meals" },
                         label = { it.label },
                     )
                     Spacer(Modifier.height(Spacing.l))
@@ -298,6 +356,26 @@ fun DataBackupScreen(onBack: () -> Unit) {
                         },
                         enabled = !state.busy,
                         modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+
+            item("delete") {
+                Section("Delete data") {
+                    DangerRow(
+                        icon = Lucide.Eraser,
+                        title = "Clear diary",
+                        body = "Delete all meals, water and weight. Keeps your profile and foods.",
+                        enabled = !state.busy,
+                        onClick = { confirmClear = true },
+                    )
+                    AppDivider()
+                    DangerRow(
+                        icon = Lucide.RotateCcw,
+                        title = "Reset app",
+                        body = "Erase everything on this phone and start over.",
+                        enabled = !state.busy,
+                        onClick = { confirmReset = true },
                     )
                 }
             }
@@ -322,7 +400,7 @@ private fun FolderRow(
     val scheme = MaterialTheme.colorScheme
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("FOLDER", style = AppText.eyebrow, color = scheme.onSurfaceVariant)
+            Text("Folder", style = AppText.eyebrow, color = scheme.onSurfaceVariant)
             Spacer(Modifier.height(Spacing.xs))
             Text(
                 folderLabel ?: "Downloads/FoodTracker",
@@ -371,7 +449,7 @@ private fun BackupRow(
         AppTextButton("Restore", onRestore, enabled = enabled)
         IconButton(onClick = onDelete, enabled = enabled) {
             Icon(
-                Icons.Default.Delete,
+                Lucide.Trash2,
                 contentDescription = "Delete backup",
                 tint = scheme.onSurfaceVariant,
             )
@@ -407,4 +485,29 @@ private fun humanReadableSize(bytes: Long): String = when {
     bytes < 1024 -> "$bytes B"
     bytes < 1024 * 1024 -> "${bytes / 1024} KB"
     else -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
+}
+
+@Composable
+private fun DangerRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    body: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = Spacing.m),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PastelIcon(icon, Pastel.Rose, size = 36.dp)
+        Spacer(Modifier.width(Spacing.m))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = AppText.titleM, color = scheme.error)
+            Text(body, style = AppText.bodyS, color = scheme.onSurfaceVariant)
+        }
+    }
 }

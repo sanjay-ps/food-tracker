@@ -1,5 +1,6 @@
 package com.example.foodtracker.data.backup
 
+import kotlinx.serialization.json.decodeFromStream
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
@@ -38,6 +39,8 @@ import java.util.Locale
  *    via MediaStore. Discoverable by every file manager, survives uninstall
  *    (Downloads is user storage), restorable from the in-app list.
  */
+private const val BACKUP_PREFIX = "foodtracker-backup-"
+
 class BackupManager(
     private val context: Context,
     private val database: AppDatabase,
@@ -45,7 +48,9 @@ class BackupManager(
 ) {
 
     private val json = Json {
-        prettyPrint = true
+        // Compact: ~30% smaller per snapshot, and five are kept. Older
+        // pretty-printed files still parse.
+        prettyPrint = false
         ignoreUnknownKeys = true
         encodeDefaults = true
     }
@@ -284,7 +289,7 @@ class BackupManager(
         val customUri = profileStore.backupFolderUri.first()?.let(Uri::parse)
         val saved = withContext(Dispatchers.IO) {
             val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-            val name = "foodtracker-backup-$timestamp.json"
+            val name = "$BACKUP_PREFIX$timestamp.json"
             if (customUri != null) writeToCustomFolder(customUri, name, payload)
             else writeToDownloads(name, payload)
         }
@@ -363,7 +368,11 @@ class BackupManager(
      */
     suspend fun listBackups(): List<LocalBackup> = withContext(Dispatchers.IO) {
         val customUri = profileStore.backupFolderUri.first()?.let(Uri::parse)
-        if (customUri != null) listFromCustomFolder(customUri) else listFromDownloads()
+        (if (customUri != null) listFromCustomFolder(customUri) else listFromDownloads())
+            // Only our own snapshots. Pruning deletes from this list, and a
+            // user-picked folder may hold other JSON — including this app's
+            // own manual and analysis exports — which must never be touched.
+            .filter { it.displayName.startsWith(BACKUP_PREFIX) }
     }
 
     private fun listFromCustomFolder(treeUri: Uri): List<LocalBackup> {
@@ -493,9 +502,23 @@ class BackupManager(
         }
     }
 
-    private fun readPayload(input: InputStream): BackupPayload {
-        val text = input.reader(Charsets.UTF_8).use { it.readText() }
-        return json.decodeFromString(BackupPayload.serializer(), text)
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    private fun readPayload(input: InputStream): BackupPayload =
+        input.use { json.decodeFromStream(BackupPayload.serializer(), it) }
+
+    /**
+     * Deletes every food, water and weight entry, in one transaction. Profile,
+     * targets, custom foods, favourites and the plan stay.
+     */
+    suspend fun clearDiary(): Result<Unit> = runCatching {
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                database.foodLogDao().deleteAll()
+                database.waterLogDao().deleteAll()
+                database.weightLogDao().deleteAll()
+            }
+        }
+        com.example.foodtracker.widget.WidgetUpdater.updateAll(context)
     }
 
     /**

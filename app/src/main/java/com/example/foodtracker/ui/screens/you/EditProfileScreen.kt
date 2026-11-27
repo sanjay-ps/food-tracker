@@ -1,9 +1,13 @@
 package com.example.foodtracker.ui.screens.you
 
+import com.example.foodtracker.ui.components.detail
+import com.example.foodtracker.ui.components.title
+import com.example.foodtracker.ui.components.OptionGrid
+import com.example.foodtracker.ui.components.OptionList
+import com.example.foodtracker.ui.components.atoms.AppTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,7 +39,6 @@ import com.example.foodtracker.domain.GoalCalculator
 import com.example.foodtracker.ui.appViewModel
 import com.example.foodtracker.ui.components.BmiBar
 import com.example.foodtracker.ui.components.ExclusiveButtonGroup
-import com.example.foodtracker.ui.components.HapticFilterChip
 import com.example.foodtracker.ui.components.HapticSlider
 import com.example.foodtracker.ui.components.NumberStepper
 import com.example.foodtracker.ui.components.atoms.AppDivider
@@ -121,7 +123,7 @@ fun EditProfileScreen(onBack: () -> Unit) {
         ) {
             item("about") {
                 Section("About you") {
-                    OutlinedTextField(
+                    AppTextField(
                         value = draft.name,
                         onValueChange = { v -> vm.updateDraft { it.copy(name = v) } },
                         label = { Text("Name") },
@@ -193,22 +195,13 @@ fun EditProfileScreen(onBack: () -> Unit) {
                         )
                     },
                 ) {
-                    // One FlowRow of pills, not the vertical list of five
-                    // full-width chips this used to be — the labels are two
-                    // words each and the column cost a third of the page.
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.s),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        ActivityLevel.entries.forEach { level ->
-                            HapticFilterChip(
-                                selected = draft.activityLevel == level,
-                                onClick = { vm.updateDraft { it.copy(activityLevel = level) } },
-                                label = { Text(level.displayName, style = AppText.label) },
-                            )
-                        }
-                    }
+                    OptionList(
+                        options = ActivityLevel.entries,
+                        selected = draft.activityLevel,
+                        onSelect = { level -> vm.updateDraft { it.copy(activityLevel = level) } },
+                        caption = { it.detail },
+                        label = { it.title },
+                    )
                     Spacer(Modifier.height(Spacing.xl))
                     TrainingMixRow(
                         mix = draft.trainingMix,
@@ -229,11 +222,17 @@ fun EditProfileScreen(onBack: () -> Unit) {
                         )
                     },
                 ) {
-                    ExclusiveButtonGroup(
+                    OptionList(
                         options = Goal.entries,
                         selected = draft.goal,
                         onSelect = vm::setDraftGoal,
-                        modifier = Modifier.fillMaxWidth(),
+                        caption = {
+                    when (it) {
+                        Goal.Lose -> "Eat a little under what you burn"
+                        Goal.Maintain -> "Eat about what you burn"
+                        Goal.Gain -> "Eat a little over what you burn"
+                    }
+                },
                         label = { it.displayName },
                     )
                     if (draft.goal != Goal.Maintain) {
@@ -242,21 +241,13 @@ fun EditProfileScreen(onBack: () -> Unit) {
                             if (draft.goal == Goal.Lose) "Rate of loss" else "Rate of gain",
                         )
                         Spacer(Modifier.height(Spacing.s))
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-                            verticalArrangement = Arrangement.spacedBy(Spacing.s),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            WeightChangeRate.entries.forEach { rate ->
-                                HapticFilterChip(
-                                    selected = draft.weightChangeRate == rate,
-                                    onClick = {
-                                        vm.updateDraft { it.copy(weightChangeRate = rate) }
-                                    },
-                                    label = { Text(rate.displayName, style = AppText.label) },
-                                )
-                            }
-                        }
+                        OptionGrid(
+                            options = WeightChangeRate.entries,
+                            selected = draft.weightChangeRate,
+                            onSelect = { rate -> vm.updateDraft { it.copy(weightChangeRate = rate) } },
+                            caption = { it.detail },
+                            label = { it.title },
+                        )
                         Spacer(Modifier.height(Spacing.xl))
                         GoalWeightSlider(draft = draft, onUpdate = vm::updateDraft)
                     }
@@ -277,7 +268,7 @@ fun EditProfileScreen(onBack: () -> Unit) {
                     // job either way, and the badge was the only filled shape
                     // left on the page.
                     trailing = {
-                        Text("LIVE", style = AppText.eyebrow, color = scheme.primary)
+                        Text("Live", style = AppText.eyebrow, color = scheme.tertiary)
                     },
                 ) {
                     // Only the headline four, and only the saved→draft arrow

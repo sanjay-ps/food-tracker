@@ -17,7 +17,8 @@ import com.example.foodtracker.data.withOilAmount
     tableName = "foods",
     indices = [
         Index(value = ["barcode"], unique = false),
-        Index(value = ["name"]),
+        // No index on `name`: every name query is COLLATE NOCASE or LIKE '%q%',
+        // which a plain index cannot serve. Dropped in MIGRATION_12_13.
         Index(value = ["client_uuid"], unique = true),
     ],
 )

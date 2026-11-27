@@ -1,30 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Adaptive icon foreground: a fork and a knife, side on.
+  Adaptive icon foreground: a bowl whose steam is a tick — eaten, and logged.
+  White bowl, green tick, on the ink tile.
 
-  The tool of the activity, drawn as long thin geometric objects — the same
-  sentence GymTracker's icon says with a loaded barbell. Both marks are built
-  from the app's own primitives rather than illustrated: every end is the 2dp
-  corner radius the UI uses, the fork's tines are the Meter bars from Today's
-  macro rows stood on end, and the handles are the 4dp rule from house rule 1
-  turned vertical. Flat, one colour, no gradient, no stroke, no shadow.
-
-  Geometry on the 108dp canvas, centred on (54,54):
-
-    fork
-      tines   x37..41 / x44..48 / x51..55, w4 gap3, y32..50, top corners r2
-      head    x37..55, y46..57, bottom corners r5 (tines sink 4 into it)
-      handle  x44..48, y54..76, bottom r2 (sinks 3 into the head)
-    knife
-      blade   wedge: spine straight at x61, y32..54; edge runs convex from
-              the r1 tip at (62.3,32) out to x70 at y50, then shoulders back
-              in to x66 at y54
-      handle  x61..65, y52..76, bottom r2 (the spine runs on unbroken)
-
-  Extents x37..71, y32..76 — 34 x 44, centred on (54,54) in both axes. The
-  farthest point is the outer top corner of the fork's first tine, 27.8dp from
-  centre before its r2 rounding, inside the 33dp safe-zone radius, so neither
-  the circle nor the squircle mask crops anything.
+  Drawn on a 108 grid around (54,56), then scaled x0.72 and moved to (54,54),
+  so the mark sits well inside the 33dp safe zone. ic_launcher_monochrome.xml,
+  ic_notification.xml and ic_splash.xml carry the same paths; keep them in step.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -32,34 +13,8 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Fork: three tines. -->
-    <path
-        android:fillColor="@color/ic_launcher_foreground"
-        android:pathData="M39,32 a2,2 0 0 1 2,2 v16 h-4 v-16 a2,2 0 0 1 2,-2 Z" />
-    <path
-        android:fillColor="@color/ic_launcher_foreground"
-        android:pathData="M46,32 a2,2 0 0 1 2,2 v16 h-4 v-16 a2,2 0 0 1 2,-2 Z" />
-    <path
-        android:fillColor="@color/ic_launcher_foreground"
-        android:pathData="M53,32 a2,2 0 0 1 2,2 v16 h-4 v-16 a2,2 0 0 1 2,-2 Z" />
-
-    <!-- Fork: head the tines sink into. -->
-    <path
-        android:fillColor="@color/ic_launcher_foreground"
-        android:pathData="M37,46 h18 v6 a5,5 0 0 1 -5,5 h-8 a5,5 0 0 1 -5,-5 Z" />
-
-    <!-- Fork: handle. -->
-    <path
-        android:fillColor="@color/ic_launcher_foreground"
-        android:pathData="M44,54 h4 v20 a2,2 0 0 1 -2,2 a2,2 0 0 1 -2,-2 Z" />
-
-    <!-- Knife: blade, straight spine and a swelling edge. -->
-    <path
-        android:fillColor="@color/ic_launcher_foreground"
-        android:pathData="M61,33 a1,1 0 0 1 1.3,-0.95 c4.5,2.6 7.7,9.6 7.7,17.95 c0,2.6 -1.6,4 -4,4 h-5 Z" />
-
-    <!-- Knife: handle, carrying the spine on. -->
-    <path
-        android:fillColor="@color/ic_launcher_foreground"
-        android:pathData="M61,52 h4 v22 a2,2 0 0 1 -2,2 a2,2 0 0 1 -2,-2 Z" />
+    <group android:scaleX="0.72" android:scaleY="0.72" android:translateX="15.12" android:translateY="13.68">
+        <path android:fillColor="@android:color/white" android:pathData="M30,58 H78 C78,72 67,81 54,81 C41,81 30,72 30,58 Z" />
+        <path android:strokeColor="@color/ic_launcher_foreground" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M42,40 L51,49 L67,31" />
+    </group>
 </vector>

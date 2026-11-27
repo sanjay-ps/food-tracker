@@ -1,5 +1,13 @@
 package com.example.foodtracker.ui.screens.log
 
+import java.time.LocalTime
+import com.example.foodtracker.domain.MealTiming
+import kotlinx.coroutines.flow.first
+import com.example.foodtracker.domain.GoalCalculator
+import com.example.foodtracker.domain.NutrientDensity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.foodtracker.data.FoodRepository
@@ -19,22 +27,21 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Which set of foods the picker is showing.
+ * Which set of foods the picker is showing. The tab picks the set; the search
+ * field narrows it.
  *
- * **Four tabs, not five.** `Recent` and `Frequent` merged into [Often]: on a
- * repetitive diet the two lists are ~80% identical, so they were two tabs
- * showing the same dozen foods in a slightly different order, and the user had
- * to guess which order they wanted before they could look. `Search` is gone
- * too — it was a tab *and* a field, which meant the field only filtered that
- * one tab and searching your own favourites was impossible. One mental model
- * now: the tab picks the set, the field narrows it.
+ * Favourites covers what "recent/often" used to: the foods you come back to.
+ * [Ranked] is every food, most nutrition-rich first (see `NutrientDensity`).
  */
-enum class LogTab { Often, Favourites, All, Custom }
+enum class LogTab { Favourites, All, Ranked, Custom }
 
 /** Sub-filter inside the Custom tab — choose between active and soft-deleted rows. */
 enum class CustomFilter { Visible, Hidden }
@@ -43,8 +50,9 @@ enum class OnlineSearchPhase { Idle, Loading, Empty, Error }
 
 data class LogUiState(
     val query: String = "",
-    val tab: LogTab = LogTab.Often,
-    val often: List<FoodEntity> = emptyList(),
+    val tab: LogTab = LogTab.All,
+    /** Foods in nutrient-density order (rank 1 first), narrowed by the query. */
+    val ranked: List<FoodEntity> = emptyList(),
     val favourites: List<FoodEntity> = emptyList(),
     val all: List<FoodEntity> = emptyList(),
     val customVisible: List<FoodEntity> = emptyList(),
@@ -59,13 +67,39 @@ data class LogUiState(
     val selectedOilAmount: OilAmount? = null,
     val onlineResults: List<OnlineSearchResult> = emptyList(),
     val onlinePhase: OnlineSearchPhase = OnlineSearchPhase.Idle,
+    /** Every visible food, for the search placeholder and the All count; the list itself is paged. */
+    val totalFoods: Int = 0,
+    val rankedTotal: Int = 0,
+    val moreAll: Boolean = false,
+    val moreRanked: Boolean = false,
+    /** True until the first lists arrive, so the grid shows placeholders rather than "no foods". */
+    val loading: Boolean = false,
+    /** Each food's place in the Ranked order (1 = most nutrition-rich), by id. */
+    val ranks: Map<Long, Int> = emptyMap(),
 ) {
+    /** Whether scrolling to the end of this tab should load another page. */
+    val canLoadMore: Boolean
+        get() = when (tab) {
+            LogTab.All -> moreAll
+            LogTab.Ranked -> moreRanked
+            else -> false
+        }
+
+    /** The count to show above the grid: the whole tab, not just the loaded page. */
+    val listCount: Int
+        get() = when {
+            query.isNotBlank() -> visibleList.size
+            tab == LogTab.All -> maxOf(totalFoods, all.size)
+            tab == LogTab.Ranked -> maxOf(rankedTotal, ranked.size)
+            else -> visibleList.size
+        }
+
     /** The list the active tab is showing, so the screen does not re-derive it. */
     val visibleList: List<FoodEntity>
         get() = when (tab) {
-            LogTab.Often -> often
             LogTab.Favourites -> favourites
             LogTab.All -> all
+            LogTab.Ranked -> ranked
             LogTab.Custom -> if (customFilter == CustomFilter.Hidden) customHidden else customVisible
         }
 }
@@ -77,8 +111,8 @@ data class LogUiState(
  * The four short lists are filtered here rather than in SQL because they are
  * already in memory and at most a few dozen rows: a round trip to Room per
  * keystroke, per tab, to re-filter twelve recent foods would be slower than the
- * filter. Only the All tab, which is the whole 166-row catalogue and is
- * `LIMIT 100` in SQL, stays a query.
+ * filter. Only the All and Ranked tabs, which page through the 500-food
+ * catalogue (and are `LIMIT 100` in SQL when searching), stay queries.
  */
 private fun List<FoodEntity>.matching(query: String): List<FoodEntity> {
     if (query.isBlank()) return this
@@ -93,10 +127,35 @@ class LogFoodViewModel(
     private val repository: FoodRepository,
     private val profileStore: ProfileStore,
     initialMeal: MealType = MealType.Breakfast,
+    /** The day entries go into. */
+    val day: Long = DateUtil.todayEpochDay(),
 ) : ViewModel() {
 
+    /** A time the user picked for the entry being composed; null = the default for the meal. */
+    val eatenAtOverride = MutableStateFlow<LocalTime?>(null)
+
+    /** When the entry being composed was eaten — the user's pick, else the meal's default. */
+    fun eatenAt(meal: MealType): LocalTime = eatenAtOverride.value ?: MealTiming.defaultFor(
+        meal, day, DateUtil.todayEpochDay(), LocalTime.now(), MealType.currentForTime(),
+    )
+
     private val _query = MutableStateFlow("")
-    private val _tab = MutableStateFlow(LogTab.Often)
+
+    /**
+     * The search field's text, as Compose state: it updates in the same frame
+     * as the keystroke. Reading the field back from [state] (a flow round trip)
+     * dropped and reordered characters when typing fast.
+     */
+    var queryText by mutableStateOf("")
+        private set
+    private val _tab = MutableStateFlow(LogTab.All)
+
+    /**
+     * Where the picker opened, decided once: Favourites when there are at
+     * least [FAVS_TO_LAND] of them, otherwise All. Null until decided. The
+     * screen focuses the search field when this is All.
+     */
+    val landing = MutableStateFlow<LogTab?>(null)
     private val _customFilter = MutableStateFlow(CustomFilter.Visible)
     private val _mealType = MutableStateFlow(initialMeal)
     private val _selected = MutableStateFlow<FoodEntity?>(null)
@@ -109,41 +168,77 @@ class LogFoodViewModel(
     private val _onlineResults = MutableStateFlow<List<OnlineSearchResult>>(emptyList())
     private val _onlinePhase = MutableStateFlow(OnlineSearchPhase.Idle)
 
-    private val allFlow = _query.flatMapLatest { q ->
-        if (q.isBlank()) repository.observeAllFoods() else repository.searchFoods(q)
+    /**
+     * Rows loaded so far on the All and Ranked tabs. Each starts at [PAGE] and
+     * grows by a page when the grid nears its end ([loadMore]), so opening the
+     * picker reads 40 foods, not 500. A search is already `LIMIT 100` in SQL.
+     */
+    private val _allLimit = MutableStateFlow(PAGE)
+    private val _rankedLimit = MutableStateFlow(PAGE)
+
+    private data class Pages(
+        val all: List<FoodEntity>,
+        val ranked: List<FoodEntity>,
+        val total: Int,
+        val moreAll: Boolean,
+        val moreRanked: Boolean,
+        val ranks: Map<Long, Int>,
+        val rankedTotal: Int,
+    )
+
+    private data class RankedPage(val foods: List<FoodEntity>, val ranks: Map<Long, Int>, val more: Boolean, val total: Int)
+
+    private val allPageFlow = combine(_query, _allLimit) { q, lim -> q to lim }.flatMapLatest { (q, lim) ->
+        if (q.isBlank()) repository.observeFoodsPage(lim).map { it to (it.size >= lim) }
+        else repository.searchFoods(q).map { it to false }
     }
+
+    /**
+     * Every visible food, most nutrition-rich first ([NutrientDensity], against
+     * the user's own targets). Scoring needs every row, so this reads the whole
+     * catalogue once — off the main thread — and the tab pages through it.
+     */
+    private val byDensityFlow = combine(
+        repository.observeAllFoods(),
+        profileStore.profile.map(GoalCalculator::goalsFor),
+    ) { foods, goals ->
+        foods.map { it to NutrientDensity.score(it.nutrientsPer100g(), goals) }
+            .sortedByDescending { it.second }
+            .map { it.first }
+    }
+
+    private val rankedPageFlow = combine(_query, _rankedLimit, byDensityFlow) { q, lim, ranked ->
+        RankedPage(
+            foods = if (q.isBlank()) ranked.take(lim) else ranked.matching(q),
+            ranks = ranked.withIndex().associate { (i, f) -> f.id to i + 1 },
+            more = q.isBlank() && lim < ranked.size,
+            total = ranked.size,
+        )
+    }
+
+    // Built off the main thread, and only when a page or the query changes, so
+    // the serving sheet's slider ticks no longer re-sort the catalogue.
+    private val pagesFlow = combine(allPageFlow, rankedPageFlow, repository.observeVisibleFoodCount()) { a, r, total ->
+        Pages(
+            all = a.first, ranked = r.foods, total = total, moreAll = a.second, moreRanked = r.more,
+            ranks = r.ranks, rankedTotal = r.total,
+        )
+    }.flowOn(Dispatchers.Default)
     private val favouritesFlow = repository.observeFavouriteFoods()
-    private val recentFlow = repository.observeRecentFoods()
-    private val frequentFlow = repository.observeFrequentFoods()
     private val customVisibleFlow = repository.observeCustomVisibleFoods()
     private val customHiddenFlow = repository.observeCustomHiddenFoods()
 
-    /**
-     * Recent and frequent, merged — decision 2.
-     *
-     * Recency leads. What you ate an hour ago is the single best predictor of
-     * what you are about to log (the same meal two days running, the second
-     * idli, the coffee that follows lunch), and a food you eat often but ate
-     * this morning is already near the top of recents anyway. The frequents
-     * then fill in behind, de-duplicated by id, so a staple you last had a
-     * fortnight ago is still one tap away without pushing today's food down.
-     */
-    private val oftenFlow = combine(recentFlow, frequentFlow) { recent, frequent ->
-        val seen = recent.mapTo(mutableSetOf()) { it.id }
-        recent + frequent.filterNot { it.id in seen }
-    }
 
     private data class Lists(
-        val often: List<FoodEntity>,
         val favourites: List<FoodEntity>,
         val customVisible: List<FoodEntity>,
         val customHidden: List<FoodEntity>,
     )
 
     private val listsFlow = combine(
-        oftenFlow, favouritesFlow, customVisibleFlow, customHiddenFlow,
-    ) { often, favourites, customVisible, customHidden ->
-        Lists(often, favourites, customVisible, customHidden)
+        favouritesFlow, customVisibleFlow, customHiddenFlow,
+    ) { favourites, customVisible, customHidden ->
+        Lists(favourites, customVisible, customHidden)
     }
 
     private data class Selection(
@@ -202,20 +297,20 @@ class LogFoodViewModel(
 
     val state: StateFlow<LogUiState> = combine(
         headFlow,
-        allFlow,
+        pagesFlow,
         listsFlow,
         selectionFlow,
         onlineFlow,
-    ) { head, all, lists, sel, online ->
+    ) { head, pages, lists, sel, online ->
         // The query narrows every tab, not just one. The All tab is already
         // filtered by SQL; the rest are filtered here against the same
         // predicate so "dos" means the same thing on every tab.
         LogUiState(
             query = head.query,
             tab = head.tab,
-            often = lists.often.matching(head.query),
+            ranked = pages.ranked,
             favourites = lists.favourites.matching(head.query),
-            all = all,
+            all = pages.all,
             customVisible = lists.customVisible.matching(head.query),
             customHidden = lists.customHidden.matching(head.query),
             customFilter = head.customFilter,
@@ -228,6 +323,11 @@ class LogFoodViewModel(
             selectedOilAmount = sel.oilAmount,
             onlineResults = online.results,
             onlinePhase = online.phase,
+            totalFoods = pages.total,
+            rankedTotal = pages.rankedTotal,
+            ranks = pages.ranks,
+            moreAll = pages.moreAll,
+            moreRanked = pages.moreRanked,
         )
     }.stateIn(
         viewModelScope,
@@ -236,7 +336,7 @@ class LogFoodViewModel(
         // title briefly reads Breakfast (the data-class default) before the
         // combine flow's first emission lands, producing a visible "morph"
         // when the user opened Log Food from a non-Breakfast meal row.
-        LogUiState(mealType = initialMeal),
+        LogUiState(mealType = initialMeal, loading = true),
     )
 
     /**
@@ -249,7 +349,11 @@ class LogFoodViewModel(
      */
     fun setQuery(q: String) {
         val openingASearch = _query.value.isBlank() && q.isNotBlank()
+        queryText = q
         _query.update { q }
+        // A cleared search starts the catalogue again from its first page.
+        _allLimit.value = PAGE
+        _rankedLimit.value = PAGE
         // Starting to type says "it is not in this short list" — so move to the
         // one list that holds everything. See [autoAllArmed] for why this is
         // not the tab-jumping bug the doc above describes.
@@ -301,11 +405,11 @@ class LogFoodViewModel(
     /**
      * Whether a first search may still move the picker to [LogTab.All].
      *
-     * Three tabs hold a dozen rows each; All holds the whole catalogue. Opening
-     * the picker on [LogTab.Often] is right — on a repetitive diet the food is
-     * usually right there, with no typing at all — but it makes the *first*
-     * keystroke misleading, because searching twelve recent foods for something
-     * that is not among them returns nothing and looks like the food is missing.
+     * Favourites holds a handful of rows; All holds the whole catalogue.
+     * Opening on Favourites is right when there are enough of them — the food
+     * is usually right there — but it makes the *first* keystroke misleading,
+     * because searching five favourites for something that is not among them
+     * returns nothing and looks like the food is missing.
      *
      * This is not a return to the behaviour [setQuery]'s doc warns about. That
      * version jumped on every keystroke, from any tab, which is what made
@@ -323,13 +427,33 @@ class LogFoodViewModel(
      */
     private var autoAllArmed = true
 
+    init {
+        viewModelScope.launch {
+            val favs = favouritesFlow.first()
+            val land = if (favs.size >= FAVS_TO_LAND) LogTab.Favourites else LogTab.All
+            // Only if the user has not already picked a tab or started typing.
+            if (autoAllArmed && _query.value.isBlank()) _tab.value = land
+            landing.value = _tab.value
+        }
+    }
+
     fun setTab(tab: LogTab) {
         autoAllArmed = false
         _tab.update { tab }
     }
     fun setCustomFilter(filter: CustomFilter) = _customFilter.update { filter }
+
+    /** Loads the next page of the current tab; the screen calls this as the grid nears its end. */
+    fun loadMore() {
+        when (state.value.tab) {
+            LogTab.All -> _allLimit.update { it + PAGE }
+            LogTab.Ranked -> _rankedLimit.update { it + PAGE }
+            else -> Unit
+        }
+    }
     fun setMealType(type: MealType) = _mealType.update { type }
     fun select(food: FoodEntity?) {
+        eatenAtOverride.value = null
         _oil.value = null
         _style.value = null
         _oilAmount.value = null
@@ -408,7 +532,7 @@ class LogFoodViewModel(
             repository.addFoodLog(
                 FoodLogEntity(
                     foodId = food.id,
-                    dateEpochDay = DateUtil.todayEpochDay(),
+                    dateEpochDay = day,
                     mealType = _mealType.value.name,
                     servings = servings,
                     grams = servings * variant.grams,
@@ -416,7 +540,8 @@ class LogFoodViewModel(
                     oil = oil?.name,
                     style = style?.label,
                     oilAmount = oilAmount?.name,
-                    loggedAtMillis = System.currentTimeMillis(),
+                    // "Eaten at": the day being logged plus the chosen time.
+                    loggedAtMillis = MealTiming.toMillis(day, eatenAt(_mealType.value), DateUtil.zoneId()),
                 )
             )
             _selected.update { null }
@@ -424,3 +549,9 @@ class LogFoodViewModel(
         }
     }
 }
+
+/** Fewer favourites than this and the picker opens on All, ready to type. */
+private const val FAVS_TO_LAND = 5
+
+/** Foods per page on the All and Ranked tabs: about three screens of the 2-column grid. */
+private const val PAGE = 40

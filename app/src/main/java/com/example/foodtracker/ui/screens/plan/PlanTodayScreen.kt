@@ -1,5 +1,8 @@
 package com.example.foodtracker.ui.screens.plan
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Circle
+import com.composables.icons.lucide.CircleCheck
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,9 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -145,12 +145,12 @@ private fun PlannedLine(row: PlannedRow, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            if (logged) Icons.Default.CheckCircle else Icons.Outlined.Circle,
+            if (logged) Lucide.CircleCheck else Lucide.Circle,
             contentDescription = if (logged) "Already logged" else null,
             // The accent means "on track" and a logged line is exactly that —
             // one of the data uses house rule 3 allows. An empty ring stays
             // neutral: nothing has happened yet.
-            tint = if (logged) scheme.primary else scheme.outline,
+            tint = if (logged) scheme.secondary else scheme.outline,
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(Spacing.m))

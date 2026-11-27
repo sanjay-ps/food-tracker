@@ -151,6 +151,20 @@ class DataBackupViewModel(
         }
     }
 
+    fun clearDiary() {
+        viewModelScope.launch {
+            _busy.update { true }
+            val result = backupManager.clearDiary()
+            _busy.update { false }
+            _message.update {
+                result.fold(
+                    onSuccess = { "Diary cleared. Your profile and foods are untouched." },
+                    onFailure = { "Couldn't clear the diary: ${it.message ?: "unknown error"}" },
+                )
+            }
+        }
+    }
+
     fun restoreBackup(backup: LocalBackup) {
         viewModelScope.launch {
             _busy.update { true }

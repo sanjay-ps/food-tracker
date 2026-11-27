@@ -16,8 +16,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         WeightLogEntity::class,
         PlanItemEntity::class,
     ],
-    version = 12,
-    exportSchema = false,
+    version = 13,
+    // Exported to app/schemas so future migrations have a reference to diff.
+    exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -210,6 +211,28 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Indexes only — no rows are touched. Names follow Room's
+         * `index_<table>_<cols>` scheme exactly, or Room's open-time schema
+         * check fails.
+         */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX IF EXISTS `index_food_log_date_epoch_day`")
+                db.execSQL("DROP INDEX IF EXISTS `index_food_log_food_id`")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_food_log_date_epoch_day_logged_at_millis` " +
+                        "ON `food_log` (`date_epoch_day`, `logged_at_millis`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_food_log_food_id_logged_at_millis` " +
+                        "ON `food_log` (`food_id`, `logged_at_millis`)"
+                )
+                db.execSQL("DROP INDEX IF EXISTS `index_plan_items_food_id`")
+                db.execSQL("DROP INDEX IF EXISTS `index_foods_name`")
+            }
+        }
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext,
@@ -225,6 +248,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_9_10,
                     MIGRATION_10_11,
                     MIGRATION_11_12,
+                    MIGRATION_12_13,
                 )
                 // Scoped to the pre-release versions that never had migrations
                 // written. Deliberately NOT the blanket

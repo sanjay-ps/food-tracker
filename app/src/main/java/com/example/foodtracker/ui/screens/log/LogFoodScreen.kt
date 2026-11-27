@@ -1,5 +1,35 @@
 package com.example.foodtracker.ui.screens.log
 
+import com.example.foodtracker.util.DateUtil
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import com.example.foodtracker.ui.components.FoodCard
+import com.example.foodtracker.ui.components.atoms.AppTextField
+import com.composables.icons.lucide.EyeOff
+import com.composables.icons.lucide.Package
+import com.composables.icons.lucide.Plus
+import com.composables.icons.lucide.RotateCcw
+import com.composables.icons.lucide.Sparkles
+import com.composables.icons.lucide.Trash2
+import com.composables.icons.lucide.FlaskConical
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.ScanBarcode
+import com.composables.icons.lucide.Search
+import com.composables.icons.lucide.Star
+import androidx.compose.material.icons.rounded.Star
+import com.example.foodtracker.ui.theme.MacroCarbs
+import com.composables.icons.lucide.X
+import com.example.foodtracker.ui.components.ExclusiveButtonGroup
+import com.example.foodtracker.ui.components.atoms.RoundIconButton
+import com.example.foodtracker.ui.components.atoms.cardColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -18,29 +48,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Science
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.StarOutline
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
+import com.example.foodtracker.ui.components.atoms.AppModalSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +78,7 @@ import com.example.foodtracker.data.OnlineSource
 import com.example.foodtracker.data.db.FoodEntity
 import com.example.foodtracker.ui.appViewModel
 import com.example.foodtracker.ui.components.EmptyState
+import com.example.foodtracker.ui.components.FoodCardPlaceholder
 import com.example.foodtracker.ui.components.FoodRow
 import com.example.foodtracker.ui.components.HapticFilterChip
 import com.example.foodtracker.ui.components.atoms.AppDivider
@@ -111,16 +134,36 @@ import com.example.foodtracker.ui.theme.Spacing
 @Composable
 fun LogFoodScreen(
     initialMeal: MealType,
+    epochDay: Long,
     onBack: () -> Unit,
     onScanBarcode: () -> Unit,
     onAddCustomFood: () -> Unit,
     onOpenRichFoods: () -> Unit,
+    /** False while the screen is still sliding in. */
+    entered: Boolean = true,
 ) {
-    val vm: LogFoodViewModel = appViewModel { LogFoodViewModel(it.repository, it.profileStore, initialMeal) }
+    // Food cards are the costly part of this screen to build, so they wait for
+    // the slide-in to finish (placeholders show meanwhile): building them
+    // mid-animation is what made opening stutter. Latched, so the exit
+    // animation never swaps them back.
+    var ready by remember { mutableStateOf(false) }
+    if (entered) ready = true
+    val vm: LogFoodViewModel = appViewModel { LogFoodViewModel(it.repository, it.profileStore, initialMeal, epochDay) }
+    val eatenAtOverride by vm.eatenAtOverride.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
     val haptics = rememberAppHaptics()
     var pendingDelete by remember { mutableStateOf<FoodEntity?>(null) }
     var pendingHidden by remember { mutableStateOf<FoodEntity?>(null) }
+    val searchFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val landing by vm.landing.collectAsStateWithLifecycle()
+    // The keyboard waits for the cards too: its animation resizes the grid.
+    LaunchedEffect(landing, ready && !state.loading) {
+        if (landing == LogTab.All && ready && !state.loading) {
+            searchFocus.requestFocus()
+            keyboard?.show()
+        }
+    }
 
     val isHiddenView = state.tab == LogTab.Custom && state.customFilter == CustomFilter.Hidden
     val listForTab = state.visibleList
@@ -130,14 +173,12 @@ fun LogFoodScreen(
         topBar = {
             AppTopBar(
                 title = "Add to ${state.mealType.displayName}",
+                // Say which day when it is not today — back-filling is easy to forget.
+                subtitle = if (epochDay != DateUtil.todayEpochDay()) DateUtil.formatHeader(epochDay) else null,
                 onBack = onBack,
                 actions = {
-                    IconButton(onClick = onOpenRichFoods) {
-                        Icon(Icons.Default.Science, contentDescription = "Find foods rich in…")
-                    }
-                    IconButton(onClick = onScanBarcode) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan barcode")
-                    }
+                    RoundIconButton(Lucide.FlaskConical, "Find foods rich in…", onOpenRichFoods)
+                    RoundIconButton(Lucide.ScanBarcode, "Scan barcode", onScanBarcode)
                 },
             )
         },
@@ -150,17 +191,18 @@ fun LogFoodScreen(
             // Not auto-focused, deliberately: the keyboard would cover the tab
             // you landed on, and the common case is tapping a food you can
             // already see rather than typing its name.
-            OutlinedTextField(
-                value = state.query,
+            AppTextField(
+                value = vm.queryText,
+                focusRequester = searchFocus,
                 onValueChange = vm::setQuery,
                 // The count is only ever read while the field is empty — which
                 // is exactly when `all` holds the unfiltered catalogue.
-                placeholder = { Text("Search ${state.all.size} foods…", style = AppText.body) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                placeholder = { Text(if (state.totalFoods > 0) "Search ${state.totalFoods} foods…" else "Search foods…", style = AppText.body) },
+                leadingIcon = { Icon(Lucide.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
                 trailingIcon = {
-                    if (state.query.isNotEmpty()) {
+                    if (vm.queryText.isNotEmpty()) {
                         IconButton(onClick = { vm.setQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                            Icon(Lucide.X, contentDescription = "Clear search", modifier = Modifier.size(20.dp))
                         }
                     }
                 },
@@ -173,7 +215,7 @@ fun LogFoodScreen(
                 // borrowed from the control below it, and two pill silhouettes
                 // stacked at the top of the screen were the first thing the eye
                 // met on the way into the picker.
-                shape = RoundedCornerShape(Radius.md),
+                shape = RoundedCornerShape(Radius.pill),
                 singleLine = true,
             )
 
@@ -190,7 +232,7 @@ fun LogFoodScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    countCaption(listForTab.size),
+                    if (state.loading) "Loading foods…" else countCaption(state.listCount),
                     style = AppText.eyebrow,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -207,7 +249,7 @@ fun LogFoodScreen(
                         },
                         leadingIcon = {
                             Icon(
-                                Icons.Outlined.VisibilityOff,
+                                Lucide.EyeOff,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
                             )
@@ -220,23 +262,44 @@ fun LogFoodScreen(
             // One LazyListState is reused across tabs, so without this reset a
             // deep scroll on All carries over to Often and the user lands
             // mid-list. Keyed on everything that swaps the list's contents.
-            val listState = rememberLazyListState()
+            val listState = rememberLazyGridState()
             LaunchedEffect(state.tab, state.customFilter, state.query) {
                 listState.scrollToItem(0)
             }
 
-            LazyColumn(
+            // All and Ranked load a page at a time: fetch the next one while the
+            // last few cards of this one are still on their way into view.
+            val nearEnd by remember {
+                derivedStateOf {
+                    val info = listState.layoutInfo
+                    val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    info.totalItemsCount > 0 && last >= info.totalItemsCount - LOAD_AHEAD
+                }
+            }
+            // Only once the real cards show: six placeholders always look "near the end".
+            val showingCards = ready && !state.loading
+            LaunchedEffect(nearEnd, state.canLoadMore, listForTab.size, showingCards) {
+                if (showingCards && nearEnd && state.canLoadMore) vm.loadMore()
+            }
+
+            // Two columns of food tiles; headers, hints and empty states span both.
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
                 state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
+                contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, top = Spacing.xs, bottom = Spacing.xxl),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.m),
+                verticalArrangement = Arrangement.spacedBy(Spacing.m),
             ) {
                 if (showCustomAddRow) {
-                    item("add-custom") { AddCustomFoodRow(onClick = onAddCustomFood) }
+                    item("add-custom", span = { GridItemSpan(maxLineSpan) }) { AddCustomFoodRow(onClick = onAddCustomFood) }
                 }
                 items(listForTab, key = { it.id }) { food ->
-                    FoodRow(
+                    FoodCard(
                         food = food,
+                        rank = if (state.tab == LogTab.Ranked) state.ranks[food.id] else null,
                         onClick = {
                             haptics.light()
                             if (isHiddenView) pendingHidden = food else vm.select(food)
@@ -247,14 +310,9 @@ fun LogFoodScreen(
                                 pendingDelete = it
                             }
                         },
-                        trailing = {
+                        badge = {
                             if (isHiddenView) {
-                                Text(
-                                    "Hidden",
-                                    style = AppText.bodyS,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(end = Spacing.s),
-                                )
+                                CardBadge("Hidden")
                             } else {
                                 // Filled against outline carries the state on
                                 // its own, so the accent comes off the star:
@@ -268,15 +326,16 @@ fun LogFoodScreen(
                                 }) {
                                     if (food.isFavourite) {
                                         Icon(
-                                            Icons.Filled.Star,
+                                            Icons.Rounded.Star,
                                             contentDescription = "Unfavourite",
-                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            tint = MacroCarbs,
                                         )
                                     } else {
                                         Icon(
-                                            Icons.Outlined.StarOutline,
+                                            Lucide.Star,
                                             contentDescription = "Favourite",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp),
                                         )
                                     }
                                 }
@@ -284,8 +343,10 @@ fun LogFoodScreen(
                         },
                     )
                 }
-                if (listForTab.isEmpty()) {
-                    item("empty") {
+                if (state.loading || !ready) {
+                    items(PLACEHOLDER_CARDS, key = { "placeholder-$it" }) { FoodCardPlaceholder() }
+                } else if (listForTab.isEmpty()) {
+                    item("empty", span = { GridItemSpan(maxLineSpan) }) {
                         EmptyTabHint(
                             tab = state.tab,
                             isHiddenView = isHiddenView,
@@ -295,7 +356,7 @@ fun LogFoodScreen(
                     }
                 }
                 if (state.onlineResults.isNotEmpty()) {
-                    item("online-header") {
+                    item("online-header", span = { GridItemSpan(maxLineSpan) }) {
                         // A standing head with a rule under it, like every
                         // other section break in the app: these rows are a
                         // different *kind* of thing from the catalogue above
@@ -304,14 +365,7 @@ fun LogFoodScreen(
                         // around half the list. The count rides the head's
                         // trailing slot, which is where every section in the
                         // app states its total.
-                        Column(
-                            Modifier.padding(
-                                start = Spacing.gutter,
-                                end = Spacing.gutter,
-                                top = Spacing.l,
-                                bottom = Spacing.s,
-                            )
-                        ) {
+                        Column(Modifier.padding(top = Spacing.s)) {
                             Section(
                                 "Online",
                                 trailing = {
@@ -334,13 +388,13 @@ fun LogFoodScreen(
                     // database, and two sources returning the same product
                     // name would make a stable key a duplicate-key crash.
                     items(state.onlineResults) { result ->
-                        FoodRow(
+                        FoodCard(
                             food = result.food,
                             onClick = {
                                 haptics.light()
                                 vm.pickOnline(result)
                             },
-                            trailing = { SourceTag(result.source) },
+                            badge = { CardBadge(result.source.display) },
                         )
                     }
                 }
@@ -364,6 +418,8 @@ fun LogFoodScreen(
         ServingSheet(
             food = food,
             meal = state.mealType,
+            eatenAt = eatenAtOverride ?: vm.eatenAt(state.mealType),
+            onEatenAtChange = { vm.eatenAtOverride.value = it },
             variant = state.selectedVariant,
             servings = state.selectedServings,
             onVariantChange = vm::setVariant,
@@ -384,7 +440,7 @@ fun LogFoodScreen(
     }
 
     pendingDelete?.let { target ->
-        ModalBottomSheet(
+        AppModalSheet(
             onDismissRequest = { pendingDelete = null },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -406,7 +462,7 @@ fun LogFoodScreen(
     }
 
     pendingHidden?.let { target ->
-        ModalBottomSheet(
+        AppModalSheet(
             onDismissRequest = { pendingHidden = null },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -430,9 +486,9 @@ fun LogFoodScreen(
 
 /** Short enough to fit four across a 412dp screen without wrapping. */
 private fun LogTab.label(): String = when (this) {
-    LogTab.Often -> "Often"
     LogTab.Favourites -> "Favs"
     LogTab.All -> "All"
+    LogTab.Ranked -> "Ranked"
     LogTab.Custom -> "Custom"
 }
 
@@ -470,47 +526,21 @@ private fun LogTabRow(
     onSelect: (LogTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = rememberAppHaptics()
-    val scheme = MaterialTheme.colorScheme
-    // The baseline is drawn first and the tabs over it, so the selected tab's
-    // 2dp rule overdraws the hairline rather than stacking 3dp of line under
-    // one tab and 1dp under the others.
-    Box(modifier.fillMaxWidth()) {
-        AppDivider(Modifier.align(Alignment.BottomStart))
-        Row(Modifier.fillMaxWidth()) {
-            LogTab.entries.forEach { tab ->
-                val isSelected = tab == selected
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable {
-                            if (!isSelected) {
-                                haptics.light()
-                                onSelect(tab)
-                            }
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        tab.label().uppercase(),
-                        style = AppText.eyebrow,
-                        color = if (isSelected) scheme.onSurface else scheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = Spacing.m),
-                    )
-                    // Drawn for every tab, transparent on the unselected ones:
-                    // a Box that comes and goes would change the row's height
-                    // by 2dp as you move between tabs.
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(TAB_RULE)
-                            .background(if (isSelected) scheme.onSurface else Color.Transparent)
-                    )
-                }
-            }
-        }
-    }
+    ExclusiveButtonGroup(
+        options = LogTab.entries,
+        selected = selected,
+        onSelect = onSelect,
+        modifier = modifier.fillMaxWidth(),
+        trackColor = cardColor(),
+        label = { it.label() },
+    )
 }
+
+/** Stand-in cards while the first page loads: enough to fill the screen. */
+private const val PLACEHOLDER_CARDS = 6
+
+/** Cards from the end of the loaded page at which the next page is fetched. */
+private const val LOAD_AHEAD = 12
 
 private fun countCaption(size: Int): String =
     if (size == 1) "1 food" else "$size foods"
@@ -615,10 +645,10 @@ private fun AddCustomFoodRow(onClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(horizontal = Spacing.gutter, vertical = Spacing.m),
+                .padding(vertical = Spacing.m),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconCircle(icon = Icons.Default.Add)
+            IconCircle(icon = Lucide.Plus)
             Spacer(Modifier.width(Spacing.m))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -655,7 +685,7 @@ private fun EmptyTabHint(
     // yet would be both wrong and unhelpful.
     if (hasQuery) {
         EmptyState(
-            icon = Icons.Default.Search,
+            icon = Lucide.Search,
             title = "No matches here",
             message = "Nothing on this tab matches your search. Try another tab, or look it up online below.",
         )
@@ -666,27 +696,27 @@ private fun EmptyTabHint(
     val message: String
     when {
         tab == LogTab.Custom && isHiddenView -> {
-            icon = Icons.Outlined.VisibilityOff
+            icon = Lucide.EyeOff
             title = "No hidden foods"
             message = "Soft-deleted entries will show up here so you can restore or wipe them."
         }
         tab == LogTab.Custom -> {
-            icon = Icons.Outlined.Inventory2
+            icon = Lucide.Package
             title = "No custom foods yet"
             message = "Use the row above to add one."
         }
         tab == LogTab.Favourites -> {
-            icon = Icons.Outlined.StarOutline
+            icon = Lucide.Star
             title = "No favourites yet"
             message = "Tap the star on any food to save it here."
         }
-        tab == LogTab.Often -> {
-            icon = Icons.Outlined.AutoAwesome
-            title = "Nothing logged yet"
-            message = "The foods you log most, and most recently, will appear here."
+        tab == LogTab.Ranked -> {
+            icon = Lucide.Sparkles
+            title = "No ranked foods match"
+            message = "Try All, or a different word."
         }
         else -> {
-            icon = Icons.Default.Search
+            icon = Lucide.Search
             title = "No foods found"
             message = "Add a custom food, or scan a barcode."
         }
@@ -728,13 +758,13 @@ private fun DeleteCustomFoodSheet(
         )
         Spacer(Modifier.height(Spacing.l))
         ChoiceRow(
-            icon = Icons.Outlined.VisibilityOff,
+            icon = Lucide.EyeOff,
             title = "Delete, keep history",
             subtitle = "Hide from search and favourites. Past diary entries still show the name and nutrients.",
             onClick = onKeepHistory,
         )
         ChoiceRow(
-            icon = Icons.Filled.DeleteForever,
+            icon = Lucide.Trash2,
             title = "Delete with history",
             subtitle = "Remove this food and every past log entry that used it. Daily totals will change.",
             destructive = true,
@@ -769,13 +799,13 @@ private fun HiddenCustomFoodSheet(
         )
         Spacer(Modifier.height(Spacing.l))
         ChoiceRow(
-            icon = Icons.Filled.Restore,
+            icon = Lucide.RotateCcw,
             title = "Restore",
             subtitle = "Bring it back into search and favourites.",
             onClick = onRestore,
         )
         ChoiceRow(
-            icon = Icons.Filled.DeleteForever,
+            icon = Lucide.Trash2,
             title = "Delete forever",
             subtitle = "Wipe this food and every past log entry that used it. Daily totals will change.",
             destructive = true,
@@ -834,4 +864,19 @@ private fun ChoiceRow(
             }
         }
     }
+}
+
+/** A small frosted pill in a food tile's corner. */
+@Composable
+private fun CardBadge(text: String) {
+    Text(
+        text,
+        style = AppText.eyebrow,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .padding(Spacing.s)
+            .clip(RoundedCornerShape(Radius.pill))
+            .background(cardColor().copy(alpha = 0.85f))
+            .padding(horizontal = Spacing.s, vertical = 2.dp),
+    )
 }

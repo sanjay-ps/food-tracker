@@ -37,19 +37,19 @@ object Spacing {
     val screenContent = PaddingValues(16.dp)
 }
 
-/** Four radii, down from five plus a pill. */
+/** Soft, generous corners — the pastel-card look. */
 object Radius {
     /** Badges, meter caps, status cells. */
-    val sm = 8.dp
+    val sm = 10.dp
 
-    /** Inner rows, stat tiles, list rows. */
-    val md = 14.dp
+    /** Inner rows, stat tiles, list rows, inputs. */
+    val md = 16.dp
 
     /** Cards. */
-    val lg = 20.dp
+    val lg = 24.dp
 
     /** Bottom sheets — top corners only. */
-    val sheet = 24.dp
+    val sheet = 28.dp
 
     /** Chips, buttons, segmented controls, the FAB. */
     val pill = 999.dp
@@ -57,15 +57,12 @@ object Radius {
 
 /** The three heights that survived. The 56dp "hero" button did not. */
 object Sizes {
-    val button = 48.dp
+    val button = 52.dp
     val iconButton = 48.dp
     val touchTarget = 48.dp
 }
 
-/**
- * Zero elevation anywhere. Structure is a 1dp [AppOutlineVariant] hairline.
- * Kept as a named token so the rule is greppable rather than folklore.
- */
+/** Flat by default; cards separate from the canvas by fill, not shadow. */
 object Elevation {
     val none = 0.dp
     val hairline = 1.dp

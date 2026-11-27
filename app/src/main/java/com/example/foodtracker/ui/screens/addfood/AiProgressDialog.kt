@@ -241,7 +241,7 @@ private fun StepLine(label: String, status: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            label.uppercase(),
+            label,
             style = AppText.eyebrow,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),

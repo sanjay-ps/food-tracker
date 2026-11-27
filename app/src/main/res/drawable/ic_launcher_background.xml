@@ -1,13 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Adaptive icon background: OLED true black, matching the app canvas. Opaque,
-  per Play Store rules.
-
-  This used to be `mint_primary_container` (#123A2F) — a filled green tile. That
-  was the old look: the rewrite made the canvas black and reserved the accent
-  for data (house rule 3), so a green slab on the home screen advertised a
-  colour the app no longer uses as a surface.
--->
+<!-- Adaptive icon background: the ink tile (opaque, per Play Store rules). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"

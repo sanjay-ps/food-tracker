@@ -1,5 +1,7 @@
 package com.example.foodtracker.ui.screens.trends.components
 
+import com.example.foodtracker.ui.components.ExclusiveButtonGroup
+import com.example.foodtracker.ui.components.atoms.cardColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -26,32 +28,10 @@ import com.example.foodtracker.ui.theme.Sizes
 import com.example.foodtracker.ui.theme.Spacing
 
 /** The rule under the selected range. Same 24dp as `DayStrip`'s, for the same reason. */
-private val RULE_WIDTH = 24.dp
-private val RULE_HEIGHT = 2.dp
 
 /**
- * The window every section on Trends obeys: `7D · 30D · 90D · 1Y`.
- *
- * **The filled pills are gone.** This was an `ExclusiveButtonGroup` — four
- * `Radius.pill` segments, the selected one filled `primaryContainer`, the other
- * three outlined. That is three separate violations of house rule 3 in the
- * first control on the page: the accent is for data, not chrome; a selected
- * chip is not allowed to be a filled accent block; and a mint pill sitting
- * directly above a column of mint-free charts told you the control was the most
- * important thing on the screen, which it is not — it is the *frame* for the
- * numbers below it.
- *
- * What replaces it is `DayStrip`'s selection, verbatim: a label in the
- * foreground colour with a 2dp rule beneath it, and the unselected labels in
- * `onSurfaceVariant` with nothing beneath them. Trends and Today now mark "this
- * one" the same way, which is the whole point of having a house rule about it —
- * and the rule is `onSurface`, not `primary`, so the accent stays available to
- * mean "on track" when a chart uses it.
- *
- * **Re-tapping the selected range does nothing**, including no haptic. The
- * segmented control behaved that way and callers rely on it: [onSelect]
- * re-runs the whole range query, and a thumb resting on `30D` should not
- * re-issue it. The tick itself stays with the caller, beside the state change.
+ * The window every section on Trends obeys: `7D · 30D · 90D · 1Y`, as a
+ * segmented pill on a white track.
  */
 @Composable
 fun RangeBar(
@@ -59,35 +39,14 @@ fun RangeBar(
     onSelect: (TrendsRange) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    Row(modifier.fillMaxWidth()) {
-        TrendsRange.entries.forEach { range ->
-            val isSelected = range == selected
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = Sizes.touchTarget)
-                    .clickable(enabled = !isSelected) { onSelect(range) }
-                    .semantics { this.selected = isSelected }
-                    .padding(vertical = Spacing.m),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    // "7d" → "7D". The labels are set by the enum so the
-                    // control and the ViewModel can never disagree about what
-                    // "90d" means; the case is this control's business.
-                    range.label.uppercase(),
-                    style = AppText.label,
-                    color = if (isSelected) scheme.onSurface else scheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(Spacing.s))
-                Box(
-                    Modifier
-                        .width(RULE_WIDTH)
-                        .height(RULE_HEIGHT)
-                        .background(if (isSelected) scheme.onSurface else Color.Transparent)
-                )
-            }
-        }
-    }
+    // Re-tapping the selected range is a no-op (ExclusiveButtonGroup only
+    // calls back on a change), so a resting thumb never re-runs the query.
+    ExclusiveButtonGroup(
+        options = TrendsRange.entries,
+        selected = selected,
+        onSelect = onSelect,
+        modifier = modifier.fillMaxWidth(),
+        trackColor = cardColor(),
+        label = { it.label.uppercase() },
+    )
 }

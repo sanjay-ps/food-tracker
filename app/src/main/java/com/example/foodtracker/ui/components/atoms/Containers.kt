@@ -31,29 +31,13 @@ import com.example.foodtracker.ui.theme.Radius
 import com.example.foodtracker.ui.theme.Spacing
 
 /**
- * Containers.
- *
- * [AppCard] is the one container in the app. It replaces six implementations of
- * the same idea: `SectionCard` (22dp, `OutlinedCard`), `FormSection` (18dp,
- * hand-drawn border) and four private clones — `HomeSection`, `WaterSection`,
- * `WeightSection`, `ProgressSection` — which between them carried four radii
- * and three padding pairs for a distinction no reader could see. `FormSection`'s
- * docstring even defended the difference; that was the tell.
+ * Containers: [AppCard] (an untitled card), [AppDivider], and the icon discs
+ * [IconCircle] / [PastelIcon]. Titled cards are [Section].
  */
 
 /**
- * An outline on black. Never a fill, never a shadow.
- *
- * **Currently invoked nowhere, deliberately.** It replaced six near-identical
- * card implementations and was then itself removed from every screen by the
- * editorial pass: house rule 1 separates sections with a standing head and a
- * rule, because a stack of full-width bordered boxes was the single biggest
- * reason the rewritten app still read as the old one.
- *
- * It is kept rather than deleted because rule 1 leaves one opening — content
- * that must be set apart from an *adjacent different thing*, rather than merely
- * grouped — and when that comes up, this is the shape it should take. If it is
- * still unused the next time someone reads this, delete it.
+ * A plain card: [cardColor] fill, [Radius.lg] corners, no border, no shadow.
+ * Use [Section] when the card has a title.
  *
  * Pass `padding = 0.dp` when its rows need to bleed to the edge, as a divided
  * list does; the rows then own their insets.
@@ -68,10 +52,7 @@ fun AppCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.lg))
-            .border(
-                BorderStroke(Elevation.hairline, MaterialTheme.colorScheme.outlineVariant),
-                RoundedCornerShape(Radius.lg),
-            )
+            .background(cardColor())
             .padding(padding),
         content = content,
     )
@@ -99,7 +80,7 @@ fun SectionHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            title.uppercase(),
+            title,
             style = AppText.eyebrow,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
@@ -156,5 +137,18 @@ fun IconCircle(
 ) {
     IconCircle(modifier = modifier, size = size, container = container) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(iconSize))
+    }
+}
+
+/** A Lucide icon on a pastel disc — meal rows, settings rows, stat cards. */
+@Composable
+fun PastelIcon(
+    icon: ImageVector,
+    pastel: com.example.foodtracker.ui.theme.Pastel,
+    modifier: Modifier = Modifier,
+    size: Dp = 40.dp,
+) {
+    IconCircle(modifier = modifier, size = size, container = pastel.fill) {
+        Icon(icon, contentDescription = null, tint = pastel.ink, modifier = Modifier.size(size * 0.48f))
     }
 }

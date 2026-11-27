@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Food Tracker</string>
+    <string name="app_name">Foodprint</string>
     <string name="widget_goal_left_description">Calories left for today</string>
     <string name="widget_macros_description">Today\'s macros vs goal</string>
 </resources>

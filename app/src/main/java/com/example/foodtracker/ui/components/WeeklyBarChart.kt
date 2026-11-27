@@ -66,7 +66,7 @@ fun WeeklyBarChart(
             // An eyebrow, not a title: a chart that is given a heading is a
             // section, and every section in the app heads itself the same way.
             Text(
-                title.uppercase(),
+                title,
                 style = AppText.eyebrow,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -1,5 +1,6 @@
 package com.example.foodtracker.ui.screens.plan
 
+import com.example.foodtracker.ui.components.OptionGrid
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
-import com.example.foodtracker.ui.components.HapticFilterChip
 import com.example.foodtracker.ui.components.atoms.Section
 import com.example.foodtracker.ui.components.serving.ServingSheet
 import com.example.foodtracker.ui.components.serving.isCustomGrams
@@ -110,15 +110,12 @@ fun PlanAmountSheet(
         showMealChip = false,
         extraBlock = {
             Section("Planned for") {
-                ChipRow {
-                    PlanSlot.entries.forEach { option ->
-                        HapticFilterChip(
-                            selected = option == slotChoice,
-                            onClick = { slotChoice = option },
-                            label = { Text(option.displayName, maxLines = 1) },
-                        )
-                    }
-                }
+                OptionGrid(
+                    options = PlanSlot.entries,
+                    selected = slotChoice,
+                    onSelect = { slotChoice = it },
+                    label = { it.displayName },
+                )
             }
         },
         onConfirm = {
@@ -158,13 +155,3 @@ fun PlanAmountSheet(
     )
 }
 
-/** The slot chips, scrollable for the same reason the preparation rows are. */
-@Composable
-private fun ChipRow(content: @Composable () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-    ) { content() }
-}

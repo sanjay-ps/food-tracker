@@ -61,7 +61,7 @@ fun NutrientSubRows(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        row.label.uppercase(),
+                        row.label,
                         style = AppText.eyebrow,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),

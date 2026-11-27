@@ -1,17 +1,19 @@
 package com.example.foodtracker
 
+import com.example.foodtracker.data.ThemeMode
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.activity.SystemBarStyle
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.example.foodtracker.ui.AppContainer
@@ -35,15 +37,9 @@ class MainActivity : ComponentActivity() {
         // splash theme to the post-splash theme cleanly.
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            // The app is dark-only now, so the bar
-            // icons are pinned light instead of following the system setting.
-            // `SystemBarStyle.dark` means "dark bar background", i.e. light icons.
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-        )
-        WindowCompat.getInsetsController(window, window.decorView)
-            .isAppearanceLightStatusBars = false
+        // Transparent bars whose icons follow the system light/dark setting,
+        // which is also what the app theme follows.
+        enableEdgeToEdge()
         pendingDeepLink.value = DeepLink.fromIntent(intent)
         val app = application as FoodTrackerApp
         // Seeding, reminder re-arming and backup scheduling hang off an actual
@@ -56,7 +52,26 @@ class MainActivity : ComponentActivity() {
                 .collectAsStateWithLifecycle(initialValue = true)
             val defaultHaptic = LocalHapticFeedback.current
             val haptic = if (hapticsEnabled) defaultHaptic else NoOpHapticFeedback
-            AppTheme {
+            val themeMode by container.profileStore.themeMode
+                .collectAsStateWithLifecycle(initialValue = null)
+            // Nothing until the preference is read (a few ms, under the
+            // splash), so a dark-mode user never sees a light frame.
+            val mode = themeMode ?: return@setContent
+            val dark = when (mode) {
+                ThemeMode.System -> isSystemInDarkTheme()
+                ThemeMode.Light -> false
+                ThemeMode.Dark -> true
+            }
+            // Status/navigation bar icons follow the app's choice, not the system's.
+            DisposableEffect(dark) {
+                val style = SystemBarStyle.auto(
+                    android.graphics.Color.TRANSPARENT,
+                    android.graphics.Color.TRANSPARENT,
+                ) { dark }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                onDispose {}
+            }
+            AppTheme(dark = dark) {
                 CompositionLocalProvider(
                     LocalAppContainer provides container,
                     LocalHapticFeedback provides haptic,

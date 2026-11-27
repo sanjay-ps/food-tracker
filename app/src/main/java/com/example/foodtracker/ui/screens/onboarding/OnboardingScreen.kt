@@ -1,5 +1,23 @@
 package com.example.foodtracker.ui.screens.onboarding
 
+import com.example.foodtracker.ui.components.detail
+import com.example.foodtracker.ui.components.title
+import com.example.foodtracker.ui.components.OptionGrid
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
+import com.example.foodtracker.ui.components.OptionList
+import com.example.foodtracker.ui.theme.Radius
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.layout.Box
+import com.example.foodtracker.ui.components.atoms.AppSwitch
+import com.example.foodtracker.ui.components.atoms.AppTextField
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.Folder
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -24,15 +42,9 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -117,7 +129,10 @@ import kotlin.math.roundToInt
  * OF 3` rather than three dots, which says the same thing in type the rest of
  * the screen already uses.
  */
-private const val PageCount = 3
+/** Two intro pages, then the three setup steps. */
+private const val IntroCount = 2
+private const val SetupSteps = 3
+private const val PageCount = IntroCount + SetupSteps
 
 @Composable
 fun OnboardingScreen(onDone: () -> Unit) {
@@ -151,6 +166,12 @@ fun OnboardingScreen(onDone: () -> Unit) {
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
+            ProgressHeader(
+                page = pagerState.currentPage,
+                onSkip = if (pagerState.currentPage < IntroCount) {
+                    { scope.launch { pagerState.animateScrollToPage(IntroCount) } }
+                } else null,
+            )
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier
@@ -159,9 +180,11 @@ fun OnboardingScreen(onDone: () -> Unit) {
                 userScrollEnabled = false,
             ) { page ->
                 when (page) {
-                    0 -> AboutYouPage(state = state, vm = vm)
-                    1 -> GoalPage(state = state, vm = vm)
-                    2 -> OptionalPage(
+                    0 -> WelcomePage()
+                    1 -> PrivacyPage()
+                    2 -> AboutYouPage(state = state, vm = vm)
+                    3 -> GoalPage(state = state, vm = vm)
+                    4 -> OptionalPage(
                         state = state,
                         vm = vm,
                         onPickFolder = { folderLauncher.launch(null) },
@@ -172,6 +195,8 @@ fun OnboardingScreen(onDone: () -> Unit) {
             BottomNav(
                 pageIndex = pagerState.currentPage,
                 pageCount = PageCount,
+                // The name is required: "About you" waits for one.
+                continueEnabled = pagerState.currentPage != IntroCount || state.profile.name.isNotBlank(),
                 onBack = {
                     scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
                 },
@@ -207,15 +232,14 @@ private fun AboutYouPage(state: OnboardingUiState, vm: OnboardingViewModel) {
         title = "About you",
         subtitle = "A few quick details so we can calculate your targets accurately.",
     ) {
-        PrivacyTagline()
-
-        Spacer(Modifier.height(Spacing.xxl))
         Section("Your name") {
-            OutlinedTextField(
+            AppTextField(
                 value = state.profile.name,
                 onValueChange = vm::setName,
-                label = { Text("Optional", style = AppText.body) },
+                placeholder = { Text("What should we call you?", style = AppText.body) },
+                supportingText = { Text("Used only to greet you. It stays on this phone.", style = AppText.bodyS) },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -271,14 +295,13 @@ private fun AboutYouPage(state: OnboardingUiState, vm: OnboardingViewModel) {
 
         Spacer(Modifier.height(Spacing.xxl))
         Section("Activity level") {
-            ActivityLevel.entries.forEachIndexed { index, level ->
-                if (index > 0) AppDivider()
-                SelectableRow(
-                    label = level.displayName,
-                    selected = state.profile.activityLevel == level,
-                    onClick = { vm.setActivityLevel(level) },
-                )
-            }
+            OptionList(
+                options = ActivityLevel.entries,
+                selected = state.profile.activityLevel,
+                onSelect = vm::setActivityLevel,
+                caption = { it.detail },
+                label = { it.title },
+            )
         }
 
         Spacer(Modifier.height(Spacing.xxl))
@@ -296,11 +319,17 @@ private fun GoalPage(state: OnboardingUiState, vm: OnboardingViewModel) {
         subtitle = "Where you want to land. We'll compute calorie and nutrient targets from this.",
     ) {
         Section("Goal") {
-            ExclusiveButtonGroup(
+            OptionList(
                 options = Goal.entries,
                 selected = state.profile.goal,
                 onSelect = vm::setGoal,
-                modifier = Modifier.fillMaxWidth(),
+                caption = {
+                    when (it) {
+                        Goal.Lose -> "Eat a little under what you burn"
+                        Goal.Maintain -> "Eat about what you burn"
+                        Goal.Gain -> "Eat a little over what you burn"
+                    }
+                },
                 label = { it.displayName },
             )
         }
@@ -310,14 +339,13 @@ private fun GoalPage(state: OnboardingUiState, vm: OnboardingViewModel) {
             Section(
                 if (state.profile.goal == Goal.Lose) "How fast to lose?" else "How fast to gain?"
             ) {
-                WeightChangeRate.entries.forEachIndexed { index, rate ->
-                    if (index > 0) AppDivider()
-                    SelectableRow(
-                        label = rate.displayName,
-                        selected = state.profile.weightChangeRate == rate,
-                        onClick = { vm.setWeightChangeRate(rate) },
-                    )
-                }
+                OptionGrid(
+                    options = WeightChangeRate.entries,
+                    selected = state.profile.weightChangeRate,
+                    onSelect = vm::setWeightChangeRate,
+                    caption = { it.detail },
+                    label = { it.title },
+                )
             }
 
             Spacer(Modifier.height(Spacing.xxl))
@@ -365,7 +393,7 @@ private fun GoalPage(state: OnboardingUiState, vm: OnboardingViewModel) {
             },
         ) {
             Text(
-                "Calories".uppercase(),
+                "Calories",
                 style = AppText.eyebrow,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -514,7 +542,7 @@ private fun ExpandableRow(
                 )
                 Spacer(Modifier.width(Spacing.s))
                 Icon(
-                    Icons.Default.ExpandMore,
+                    Lucide.ChevronDown,
                     contentDescription = if (expanded) "Collapse $title" else "Expand $title",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.rotate(chevron),
@@ -548,7 +576,7 @@ private fun BackupsSection(
     Section("Backup folder") {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                Icons.Default.Folder,
+                Lucide.Folder,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -729,7 +757,7 @@ private fun ReminderRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            config.kind.title.uppercase(),
+            config.kind.title,
             style = AppText.eyebrow,
             color = scheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
@@ -740,7 +768,7 @@ private fun ReminderRow(
             color = if (config.enabled) scheme.onSurface else scheme.onSurfaceVariant,
         )
         Spacer(Modifier.width(Spacing.m))
-        Switch(
+        AppSwitch(
             checked = config.enabled,
             onCheckedChange = {
                 haptics.light()
@@ -776,7 +804,7 @@ private fun AiSection(state: OnboardingUiState, vm: OnboardingViewModel) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "Enable AI autofill".uppercase(),
+                "Enable AI autofill",
                 style = AppText.eyebrow,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -787,7 +815,7 @@ private fun AiSection(state: OnboardingUiState, vm: OnboardingViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Switch(
+        AppSwitch(
             checked = state.aiEnabled,
             onCheckedChange = {
                 haptics.light()
@@ -829,7 +857,7 @@ private fun AiSection(state: OnboardingUiState, vm: OnboardingViewModel) {
 
         Spacer(Modifier.height(Spacing.xxl))
         Section("API key") {
-            OutlinedTextField(
+            AppTextField(
                 value = state.aiApiKey,
                 onValueChange = vm::setAiApiKey,
                 label = { Text("${state.aiProvider.displayName} API key", style = AppText.body) },
@@ -894,15 +922,15 @@ private fun PageScaffold(
             .padding(horizontal = Spacing.gutter, vertical = Spacing.s),
     ) {
         Text(
-            if (optional) "Step $step of $PageCount · Optional".uppercase()
-            else "Step $step of $PageCount".uppercase(),
+            if (optional) "Step $step of $SetupSteps · Optional"
+            else "Step $step of $SetupSteps",
             style = AppText.eyebrow,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(Spacing.s))
+        Spacer(Modifier.height(Spacing.xs))
         Text(
             title,
-            style = AppText.numberL,
+            style = AppText.headline,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(Modifier.height(Spacing.xs))
@@ -911,9 +939,7 @@ private fun PageScaffold(
             style = AppText.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(Spacing.l))
-        AppDivider()
-        Spacer(Modifier.height(Spacing.xxl))
+        Spacer(Modifier.height(Spacing.xl))
         content()
         Spacer(Modifier.height(Spacing.xxl))
     }
@@ -930,6 +956,7 @@ private fun PageScaffold(
 private fun BottomNav(
     pageIndex: Int,
     pageCount: Int,
+    continueEnabled: Boolean,
     onBack: () -> Unit,
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
@@ -946,8 +973,14 @@ private fun BottomNav(
         }
         Spacer(Modifier.weight(1f))
         AppButton(
-            text = if (isLast) "Get started" else "Continue",
+            text = when {
+                isLast -> "Start tracking"
+                pageIndex == 0 -> "Get started"
+                pageIndex < IntroCount -> "Sounds good"
+                else -> "Continue"
+            },
             onClick = onContinue,
+            enabled = continueEnabled,
         )
     }
 }
@@ -979,7 +1012,7 @@ private fun StepperSliderRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                label.uppercase(),
+                label,
                 style = AppText.eyebrow,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -1001,97 +1034,6 @@ private fun StepperSliderRow(
     }
 }
 
-/**
- * First-screen reassurance: the app is local-first and only touches the network
- * for barcode lookups.
- *
- * **The copy is kept word for word** — this is a privacy claim, and the
- * restyle has no standing to reword one. Only the container changed, and this
- * time it changed to nothing: the filled `primaryContainer` hero became an
- * outlined card in the first pass, which was still a box, and a box is what
- * made two sentences of reassurance read as a notice the user is expected to
- * dismiss.
- *
- * What it is now is the house shape with a headline where the eyebrow usually
- * goes — the two lines of the tagline are the standing head, the hairline under
- * them is the rule, and the two claims are the content. That is rule 1's
- * anatomy exactly; the head is simply allowed to be a sentence here, because
- * the sentence *is* the point of the block.
- *
- * The two tinted icon discs are gone with the card (rule 3: the accent is for
- * data, not for decoration), and the headline drops to `onSurface` for the same
- * reason — on black, 28sp of type is emphasis enough without colouring it.
- */
-@Composable
-private fun PrivacyTagline() {
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-            "Yours alone.\nOn this device.",
-            style = AppText.numberL,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(Spacing.m))
-        AppDivider()
-        Spacer(Modifier.height(Spacing.l))
-        Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-            Text(
-                "Nothing is uploaded. Your profile, logs, and weight history stay in this app.",
-                style = AppText.bodyS,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "The internet is used only when you scan a barcode — to fetch the product from OpenFoodFacts / USDA.",
-                style = AppText.bodyS,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/**
- * Full-width selectable row: the label, and a check when it is the chosen one.
- *
- * **It is no longer a box.** Four activity levels drawn as four outlined
- * rounded rectangles, inside a card, inside a page, is three nested boundaries
- * for one question — and the selected state was a *fourth* line, a 1.5dp
- * primary border, which on black reads as a lit-up button rather than as a
- * chosen option. House rule 1 again: these rows live inside a [Section] that
- * already draws a rule under its head, and the caller divides them with
- * hairlines, so the box was drawing a boundary the list already had.
- *
- * Selection is now what rule 3 asks for in place of a filled or outlined shape:
- * an accent-coloured label at semibold, and the check that was always the real
- * signal. The row keeps its 48dp minimum, because the tap target is the row
- * whether or not anything is drawn around it.
- */
-@Composable
-private fun SelectableRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .heightIn(min = Sizes.touchTarget)
-            .padding(vertical = Spacing.m),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            label,
-            style = AppText.body,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (selected) colors.primary else colors.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-        if (selected) {
-            Icon(
-                Icons.Default.Check,
-                contentDescription = null,
-                tint = colors.primary,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
 
 /**
  * One computed target: eyebrow left, number right, like every other row in the
@@ -1108,7 +1050,7 @@ private fun TargetRow(label: String, value: Double, unit: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            label.uppercase(),
+            label,
             style = AppText.eyebrow,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
@@ -1123,4 +1065,37 @@ private fun decodeFolderLabel(uri: String): String? {
     val docIdx = decoded.indexOf("/tree/")
     if (docIdx < 0) return decoded
     return decoded.substring(docIdx + "/tree/".length)
+}
+
+/** Five short bars across the top — the done ones ink — and Skip on the intro pages. */
+@Composable
+private fun ProgressHeader(page: Int, onSkip: (() -> Unit)?) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = Spacing.gutter, end = Spacing.s, top = Spacing.s)
+            // Same height with or without Skip, so the bar never jumps.
+            .heightIn(min = Sizes.touchTarget),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            repeat(PageCount) { i ->
+                val fill by animateColorAsState(
+                    if (i <= page) scheme.primary else scheme.surfaceContainerHighest,
+                    label = "step$i",
+                )
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(Radius.pill))
+                        .background(fill)
+                )
+            }
+        }
+        Box(Modifier.width(72.dp), contentAlignment = Alignment.CenterEnd) {
+            if (onSkip != null) AppTextButton("Skip", onSkip)
+        }
+    }
 }

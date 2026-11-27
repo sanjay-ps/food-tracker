@@ -1,5 +1,8 @@
 package com.example.foodtracker.ui.components.serving
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import com.example.foodtracker.ui.theme.Radius
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -22,9 +25,18 @@ import com.example.foodtracker.data.Nutrients
 import com.example.foodtracker.ui.components.atoms.ValueText
 import com.example.foodtracker.ui.components.atoms.formatValue
 import com.example.foodtracker.ui.theme.AppText
-import com.example.foodtracker.ui.theme.MacroCarbs
-import com.example.foodtracker.ui.theme.MacroFat
-import com.example.foodtracker.ui.theme.MacroProtein
+import com.example.foodtracker.ui.theme.Rich
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
+import com.example.foodtracker.ui.components.atoms.cardColor
+import com.example.foodtracker.ui.theme.dotTexture
+import com.example.foodtracker.data.NutrientGoals
+import kotlin.math.roundToInt
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.example.foodtracker.ui.theme.Spacing
 
 /** Motion token — the same 450ms every meter and ring in the app uses. */
@@ -43,12 +55,9 @@ private const val ANIM_MS = 450
  * a flicker. Every numeric style in the app carries `tnum`, so the digits hold
  * their columns for the whole animation instead of jittering.
  *
- * The three macros are tagged in their own hues, the same ones the ring legend
- * and every chart use — a reader who has learned that coral is protein on Today
- * has learned it here, and the single letter then costs no legend. They stay
- * `bodyS` against the headline calorie figure on purpose: three macros at the
- * same weight as the number they add up to is three competing rhythms, and the
- * one thing you are adjusting has to be the one thing you can read at a glance.
+ * The hero card sits on Today's textured gradient. Its figures carry the
+ * nutrient hues every ring and chart uses, and each bar is that nutrient's
+ * share of today's target, so a serving reads as part of the day.
  */
 @Composable
 internal fun SheetHeader(
@@ -56,7 +65,11 @@ internal fun SheetHeader(
     brand: String?,
     subtitle: String?,
     nutrients: Nutrients,
+    /** Today's targets, for the share-of-day figures; null until the profile loads. */
+    goals: NutrientGoals?,
     modifier: Modifier = Modifier,
+    /** One line on how the dish is made, from the food catalogue. */
+    made: String? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val kcal by animateFloatAsState(
@@ -68,7 +81,7 @@ internal fun SheetHeader(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.gutter)
-            .padding(bottom = Spacing.l),
+            .padding(bottom = Spacing.m),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -99,32 +112,103 @@ internal fun SheetHeader(
                 )
             }
         }
-        Spacer(Modifier.height(Spacing.s))
-        Row(
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.m),
+        if (!made.isNullOrBlank()) {
+            Spacer(Modifier.height(Spacing.xs))
+            Text(made, style = AppText.bodyS, color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.height(Spacing.m))
+        // A small hero: what this serving is and how much of the day it takes,
+        // on a dotted gradient that runs left to right in the proportion its
+        // calories come from carbs, protein and fat.
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radius.lg))
+                .background(macroBrush(nutrients))
+                .dotTexture(color = scheme.onSurface.copy(alpha = 0.10f))
+                .padding(horizontal = Spacing.l, vertical = Spacing.m),
         ) {
-            // House rule 2: this is the sheet's one figure, so it is a headline
-            // number, not a grid cell. At `numberM` it was the same 18sp as the
-            // amount readout further down and smaller than the food's own name
-            // — the answer printed quieter than the question.
-            ValueText(value = kcal.toDouble(), unit = "kcal", style = AppText.numberL)
-            MacroTag(nutrients.carbs, "C", MacroCarbs)
-            MacroTag(nutrients.protein, "P", MacroProtein)
-            MacroTag(nutrients.fat, "F", MacroFat)
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text("This serving", style = AppText.eyebrow, color = scheme.onSurfaceVariant)
+                    ValueText(value = kcal.toDouble(), unit = "kcal", style = AppText.numberXL)
+                }
+                if (goals != null && goals.calories > 0) {
+                    Text(
+                        "${(nutrients.calories / goals.calories * 100).roundToInt()}% of your day",
+                        style = AppText.label,
+                        color = scheme.onSurface,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Radius.pill))
+                            .background(scheme.surface.copy(alpha = 0.7f))
+                            .padding(horizontal = Spacing.s + 2.dp, vertical = Spacing.xs),
+                    )
+                }
+            }
+            Spacer(Modifier.height(Spacing.s))
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                MacroCell("Carbs", nutrients.carbs, goals?.carbs, Rich.Carbs.ink, Modifier.weight(1f))
+                MacroCell("Protein", nutrients.protein, goals?.protein, Rich.Protein.ink, Modifier.weight(1f))
+                MacroCell("Fat", nutrients.fat, goals?.fat, Rich.Fat.ink, Modifier.weight(1f))
+                MacroCell("Fiber", nutrients.fiber, goals?.fiber, Rich.Fiber.ink, Modifier.weight(1f))
+            }
         }
     }
 }
 
-/** `28 C` with the C in its macro hue. Grams are implied — every macro is in g. */
+/**
+ * A horizontal blend of the macro tints, each centred on its share of the
+ * calories: a mostly-carb food is mostly saffron, a fried one turns lavender.
+ * One macro alone gives a flat tint; none (water, black coffee) the plain card.
+ */
 @Composable
-private fun MacroTag(value: Double, letter: String, color: Color) {
-    Row(verticalAlignment = Alignment.Bottom) {
-        Text(
-            formatValue(value),
-            style = AppText.bodyS,
-            color = MaterialTheme.colorScheme.onSurface,
+private fun macroBrush(n: Nutrients): Brush {
+    val parts = listOf(n.carbs * 4 to Rich.Carbs.tint, n.protein * 4 to Rich.Protein.tint, n.fat * 9 to Rich.Fat.tint)
+        .filter { it.first > 0 }
+    val total = parts.sumOf { it.first }
+    if (parts.isEmpty() || total <= 0) return SolidColor(cardColor())
+    if (parts.size == 1) return SolidColor(parts[0].second)
+    var start = 0.0
+    val stops = parts.map { (kcal, color) ->
+        val mid = (start + kcal / 2) / total
+        start += kcal
+        mid.toFloat() to color
+    }
+    return Brush.horizontalGradient(*stops.toTypedArray())
+}
+
+/** One macro: grams in its own hue, and a bar for its share of today's target. */
+@Composable
+private fun MacroCell(label: String, grams: Double, goal: Double?, color: Color, modifier: Modifier) {
+    Column(modifier) {
+        Text(label, style = AppText.eyebrow, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Text("${formatValue(grams)} g", style = AppText.numberM, color = color, maxLines = 1)
+        Spacer(Modifier.height(Spacing.xs + 2.dp))
+        ShareBar(fraction = if (goal != null && goal > 0) (grams / goal).toFloat() else 0f, color = color)
+    }
+}
+
+/** A thin bar on a translucent track; fills to [fraction] of the width. */
+@Composable
+internal fun ShareBar(
+    fraction: Float,
+    color: Color,
+    track: Color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+    height: Dp = 4.dp,
+) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(height)
+            .clip(RoundedCornerShape(Radius.pill))
+            .background(track),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth(fraction.coerceIn(0f, 1f))
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(Radius.pill))
+                .background(color),
         )
-        Text(" $letter", style = AppText.bodyS, color = color)
     }
 }

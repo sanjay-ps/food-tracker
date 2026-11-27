@@ -3,76 +3,79 @@ package com.example.foodtracker.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * The palette — "a black instrument panel".
+ * The palette — "calm canvas, pastel light".
  *
- * ONE scheme. There is no light table and no dynamic table: decision 11 in the
- * plan dropped light mode outright, which is what removed the dual-palette
- * compromise that was forcing every colour here into the middle. The roles stay
- * semantic, so a light scheme later is a second value table, not a refactor.
+ * Two tables, light and dark, following the system setting. Light is the
+ * default reading: a cool off-white canvas with white cards, ink-black actions
+ * and soft pastel gradients behind the hero figures. Dark keeps the same roles
+ * on a near-black canvas.
  *
- * Structure in this app comes from hairlines and type weight, never from
- * elevation, so the `surfaceContainer*` family barely moves off black — it
- * exists mostly so stock Material components have somewhere to land.
+ * Roles:
+ *  - `primary` is **ink** — buttons, the add button, selected toggles. Not data.
+ *  - `secondary` is **positive** — on-track meters and status cells.
+ *  - `tertiary` is the **accent** — today's bar, the wordmark dot, highlights.
+ *  - `error` / [StatusOver] — past a limit.
  */
 
-// ---- Surfaces -------------------------------------------------------------
+// ---- Light ----------------------------------------------------------------
 
-val AppBlack = Color(0xFF000000)
-val AppSurfaceLow = Color(0xFF070707)
-val AppSurface = Color(0xFF0C0C0B)
-val AppSurfaceHigh = Color(0xFF141312)
-val AppSurfaceHighest = Color(0xFF1C1A18)
+val LightCanvas = Color(0xFFF4F4F7)
+val LightCard = Color(0xFFFFFFFF)
+val LightSurfaceLow = Color(0xFFF9F9FB)
+val LightSurfaceHigh = Color(0xFFEEEEF2)
+val LightSurfaceHighest = Color(0xFFE5E5EB)
+val LightInk = Color(0xFF121214)
+val LightInkSoft = Color(0xFF6E6E78)
+val LightOutline = Color(0xFFD4D4DC)
+val LightOutlineVariant = Color(0xFFEAEAF0)
 
-/** Not `#FFFFFF`: pure white on pure black haloes, and this is read in the dark. */
-val AppOnSurface = Color(0xFFEFE9E0)
-val AppOnSurfaceVariant = Color(0xFFA79E92)
-val AppOutline = Color(0xFF36312B)
-val AppOutlineVariant = Color(0xFF201D1A)
+val LightPositive = Color(0xFF1E9E5A)
+val LightPositiveContainer = Color(0xFFDDF5E6)
+val LightAccent = Color(0xFFF2663A)
+val LightAccentContainer = Color(0xFFFFE5DA)
+val LightError = Color(0xFFE5484D)
+val LightErrorContainer = Color(0xFFFDE3E3)
+val LightOnErrorContainer = Color(0xFF8A1C1F)
 
-// ---- Accent ---------------------------------------------------------------
-// Deep green. Terracotta was rejected because it collides
-// with the `over limit` hue, which has to be orange-red.
+// ---- Dark -----------------------------------------------------------------
 
-val AppPrimary = Color(0xFF63D2B0)
-val AppOnPrimary = Color(0xFF00251B)
-val AppPrimaryContainer = Color(0xFF123A2F)
-val AppOnPrimaryContainer = Color(0xFFB3EEDC)
-val AppPrimaryDeep = Color(0xFF1F6F5C)
+val DarkCanvas = Color(0xFF0B0B0E)
+val DarkCard = Color(0xFF17171B)
+val DarkSurfaceLow = Color(0xFF121216)
+val DarkSurfaceHigh = Color(0xFF222228)
+val DarkSurfaceHighest = Color(0xFF2C2C33)
+val DarkInk = Color(0xFFF3F3F6)
+val DarkInkSoft = Color(0xFF9A9AA6)
+val DarkOutline = Color(0xFF3A3A44)
+val DarkOutlineVariant = Color(0xFF26262D)
 
-val AppTertiary = Color(0xFFE0A961)
-val AppOnTertiary = Color(0xFF2A1A00)
-val AppTertiaryContainer = Color(0xFF2D2310)
-val AppOnTertiaryContainer = Color(0xFFF3DBA5)
-
-val AppError = Color(0xFFFF6B5E)
-val AppOnError = Color(0xFF3A0A06)
-val AppErrorContainer = Color(0xFF4A120C)
-val AppOnErrorContainer = Color(0xFFFFD9D4)
+val DarkPositive = Color(0xFF4ADE80)
+val DarkPositiveContainer = Color(0xFF12321F)
+val DarkAccent = Color(0xFFFF7A4D)
+val DarkAccentContainer = Color(0xFF3A1E14)
+val DarkError = Color(0xFFFF6B6B)
+val DarkErrorContainer = Color(0xFF3B1416)
+val DarkOnErrorContainer = Color(0xFFFFD9D9)
 
 // ---- Data palette ---------------------------------------------------------
-// One hue per concept, shared by every chart and meter, so protein is the same
-// colour everywhere. Tuned against #000000 only — a hue picked against white
-// vibrates on black, so these are re-derived rather than flipped.
+// One hue per concept, shared by every chart and meter. Mid-tone so the same
+// value reads on a white card and on a near-black one.
 
-val MacroCarbs = Color(0xFFE3A13C)     // amber
-val MacroProtein = Color(0xFFDD6B4C)   // coral
-val MacroFat = Color(0xFFB9924B)       // warm tan
-val MacroFiber = Color(0xFF8A9A4B)     // olive
-val MacroWater = Color(0xFF5E9CBF)     // dusty blue
-val MacroBurned = Color(0xFFBF7E99)    // dusty rose
-val MacroWeight = Color(0xFF7FA98A)    // sage
+val MacroCarbs = Color(0xFFE27A0C)     // saffron  
+val MacroProtein = Color(0xFFC2257A)   // rose     
+val MacroFat = Color(0xFF5B3FD6)       // indigo   
+val MacroFiber = Color(0xFF0E9466)     // emerald  
+val MacroWater = Color(0xFF2468E8)     // blue     
+val MacroBurned = Color(0xFFF0433A)    // calories 
+val MacroWeight = Color(0xFF0F8A86)    // teal     
 
-// ---- Status palette -------------------------------------------------------
-// The one hue in the app that is allowed to be loud, and only when something
-// has gone past a cap. See [NutrientStatus].
+// ---- Status ---------------------------------------------------------------
 
-val StatusOver = Color(0xFFF08A4B)     // orange — past a limit
+val StatusOver = Color(0xFFF97316)     // orange — past a limit
 
 // ---- BMI bands ------------------------------------------------------------
-// Four fixed bands. Clinical categories, not brand colours, so they keep their
-// conventional blue/green/amber/red reading — but muted for a black canvas.
 
-val BmiUnderweight = Color(0xFF5E9CBF)
-val BmiNormal = Color(0xFF7FA98A)
-val BmiOverweight = Color(0xFFE0A961)
-val BmiObese = Color(0xFFFF6B5E)
+val BmiUnderweight = Color(0xFF3B8EF5)
+val BmiNormal = Color(0xFF22C55E)
+val BmiOverweight = Color(0xFFF5A524)
+val BmiObese = Color(0xFFEF4444)

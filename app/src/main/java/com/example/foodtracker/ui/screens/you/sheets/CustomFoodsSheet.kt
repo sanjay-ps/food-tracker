@@ -1,5 +1,7 @@
 package com.example.foodtracker.ui.screens.you.sheets
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Trash2
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,8 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -82,13 +82,13 @@ fun CustomFoodsSheet(
             colors = ButtonDefaults.outlinedButtonColors(contentColor = scheme.error),
             border = BorderStroke(Elevation.hairline, scheme.error),
         ) {
-            Icon(Icons.Default.Delete, contentDescription = null)
+            Icon(Lucide.Trash2, contentDescription = null)
             Spacer(Modifier.width(Spacing.s))
             Text("Delete all custom foods", style = AppText.label)
         }
         if (message != null) {
             Spacer(Modifier.height(Spacing.m))
-            Text(message, style = AppText.bodyS, color = scheme.primary)
+            Text(message, style = AppText.bodyS, color = scheme.secondary)
         }
     }
 

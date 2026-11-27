@@ -1,5 +1,7 @@
 package com.example.foodtracker.ui.components.sheets
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Trash2
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -14,14 +16,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import com.example.foodtracker.ui.components.atoms.AppModalSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -86,7 +86,7 @@ fun WaterSheet(onDismiss: () -> Unit) {
     val haptics = rememberAppHaptics()
     val timeFormatter = remember { DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()) }
 
-    ModalBottomSheet(
+    AppModalSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -164,7 +164,7 @@ fun WaterSheet(onDismiss: () -> Unit) {
                             vm.removeWater(entry.id)
                         }) {
                             Icon(
-                                Icons.Outlined.DeleteOutline,
+                                Lucide.Trash2,
                                 contentDescription = "Remove ${entry.amountMl} ml",
                             )
                         }

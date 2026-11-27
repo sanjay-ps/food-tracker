@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Status-bar small icon for reminder notifications. Same bowl + steam motif as
-  the launcher mark, redrawn in a tight 24×24 viewport so it stays legible at
-  status-bar size. White fill — the Android notification system tints this with
-  the channel/notification accent.
+  Status-bar small icon: the launcher's bowl and tick, scaled from the 108 grid
+  into 24dp (x0.4, re-centred). White; the system tints it.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
@@ -11,32 +9,8 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
 
-    <!-- Bowl body: half-ellipse sitting in the lower portion of the viewport. -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M3,13 L21,13 C21,17.5 17,21 12,21 C7,21 3,17.5 3,13 Z" />
-
-    <!-- Centre steam wisp. -->
-    <path
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="1.6"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:pathData="M12,10 C10,8 14,6 12,3" />
-
-    <!-- Left steam wisp. -->
-    <path
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="1.4"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:pathData="M8,10 C6.5,8.5 9.5,7 8,4.5" />
-
-    <!-- Right steam wisp. -->
-    <path
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="1.4"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:pathData="M16,10 C14.5,8.5 17.5,7 16,4.5" />
+    <group android:scaleX="0.4" android:scaleY="0.4" android:translateX="-9.6" android:translateY="-10.4">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M30,58 H78 C78,72 67,81 54,81 C41,81 30,72 30,58 Z" />
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M42,40 L51,49 L67,31" />
+    </group>
 </vector>

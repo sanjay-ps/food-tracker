@@ -1,5 +1,7 @@
 package com.example.foodtracker.ui.components.sheets
 
+import com.example.foodtracker.ui.components.atoms.AppSwitch
+import com.example.foodtracker.ui.components.atoms.AppTextField
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -19,9 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
+import com.example.foodtracker.ui.components.atoms.AppModalSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -114,7 +114,7 @@ fun WeighInSheet(onDismiss: () -> Unit) {
     val haptics = rememberAppHaptics()
     val scope = rememberCoroutineScope()
 
-    ModalBottomSheet(
+    AppModalSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -187,7 +187,7 @@ fun WeighInSheet(onDismiss: () -> Unit) {
             AppDivider()
             Spacer(Modifier.height(Spacing.l))
 
-            OutlinedTextField(
+            AppTextField(
                 value = state.note,
                 onValueChange = vm::setNote,
                 label = { Text("Note (optional)") },
@@ -214,7 +214,7 @@ fun WeighInSheet(onDismiss: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Switch(checked = state.syncToProfile, onCheckedChange = vm::setSyncToProfile)
+                AppSwitch(checked = state.syncToProfile, onCheckedChange = vm::setSyncToProfile)
             }
 
             Spacer(Modifier.height(Spacing.l))

@@ -1,5 +1,16 @@
 package com.example.foodtracker.ui.components.atoms
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.X
+import com.example.foodtracker.ui.theme.AppTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
@@ -63,20 +74,82 @@ fun AppSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet),
+        dragHandle = { SheetHandle() },
     ) {
-        Column(
-            modifier = modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Spacing.gutter)
-                .navigationBarsPadding(),
+        CompositionLocalProvider(
+            LocalCardColor provides AppTheme.extras.cardInSheet,
+            LocalBehind provides MaterialTheme.colorScheme.surfaceContainer,
         ) {
-            Text(title, style = AppText.titleL, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(Modifier.height(Spacing.m))
-            AppDivider()
-            Spacer(Modifier.height(Spacing.l))
+            Column(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.gutter)
+                    .navigationBarsPadding(),
+            ) {
+                SheetTitleRow(title = title, onClose = onDismiss)
+                Spacer(Modifier.height(Spacing.m))
+                content()
+                Spacer(Modifier.height(Spacing.xxl))
+            }
+        }
+    }
+}
+
+/** A short rounded grab bar, used by every sheet in place of Material's. */
+@Composable
+fun SheetHandle() {
+    Box(
+        Modifier
+            .padding(top = Spacing.m, bottom = Spacing.s)
+            .size(width = 36.dp, height = 4.dp)
+            .clip(RoundedCornerShape(Radius.pill))
+            .background(MaterialTheme.colorScheme.outline),
+    )
+}
+
+/** Sheet title on the left, a round close button on the right. */
+@Composable
+fun SheetTitleRow(title: String, onClose: () -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            title,
+            style = AppText.titleL,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        RoundIconButton(icon = Lucide.X, contentDescription = "Close", onClick = onClose)
+    }
+}
+
+/**
+ * `ModalBottomSheet` with the app's handle, fill and corners, and cards inside
+ * it switched to [com.example.foodtracker.ui.theme.AppExtras.cardInSheet].
+ * Same parameters as the Material one, so call sites swap by name.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppModalSheet(
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    sheetState: androidx.compose.material3.SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surfaceContainer,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet),
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        modifier = modifier,
+        sheetState = sheetState,
+        containerColor = containerColor,
+        shape = shape,
+        dragHandle = { SheetHandle() },
+    ) {
+        CompositionLocalProvider(
+            LocalCardColor provides AppTheme.extras.cardInSheet,
+            LocalBehind provides MaterialTheme.colorScheme.surfaceContainer,
+        ) {
             content()
-            Spacer(Modifier.height(Spacing.xxl))
         }
     }
 }

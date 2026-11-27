@@ -1,5 +1,16 @@
 package com.example.foodtracker.ui.components.atoms
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,25 +31,10 @@ import com.example.foodtracker.ui.theme.Radius
 import com.example.foodtracker.ui.theme.Sizes
 
 /**
- * Actions.
- *
- * Height is 48dp, down from the old 52, and the 56dp `ButtonHeightHero` is
- * gone: onboarding now uses the same button as everywhere else, because a CTA
- * that is bigger only on the first run teaches the wrong size for the button
- * the user will press a thousand times afterwards.
- *
- * All three are pill-shaped and carry **zero elevation**. The filled variant is
- * one of the five fills the house rules allow in the whole app.
- *
- * The 48dp is a **minimum, not a height**. These were the only three controls in
- * the app pinned to an exact `height()` — every other one (`HapticFilterChip`,
- * `ExclusiveButtonGroup`, `RangeBar`, the You and Onboarding rows) already said
- * `heightIn(min = ...)`. A fixed box is fine until the system font scale moves:
- * `AppText.label` is 13sp on an 18sp line, which at the 2.0 scale Android allows
- * becomes a 36sp line box that a 48dp button cannot hold, so the label is
- * squeezed and a wrapped one is cut off. A minimum keeps the tap target and the
- * rhythm at 1.0 — the content is smaller than 48dp there, so nothing moves — and
- * lets the button grow on the devices that need it.
+ * Actions: [AppButton] (ink pill), [AppOutlinedButton] (soft pill),
+ * [AppTextButton] (link with a real tap target). All flat, all sink slightly
+ * when pressed. [Sizes.button] is a minimum height, never a fixed one, so
+ * labels survive large font scales.
  */
 
 /** The primary action. Filled `primary`, pill, flat. */
@@ -52,8 +48,12 @@ fun AppButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = Sizes.button),
+        modifier = modifier.heightIn(min = Sizes.button).pressScale(),
         shape = RoundedCornerShape(Radius.pill),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ),
         elevation = ButtonDefaults.buttonElevation(
             defaultElevation = Elevation.none,
             pressedElevation = Elevation.none,
@@ -61,11 +61,11 @@ fun AppButton(
             hoveredElevation = Elevation.none,
         ),
     ) {
-        Text(text, style = AppText.label)
+        Text(text, style = ButtonText)
     }
 }
 
-/** The secondary action. Hairline outline, no fill. */
+/** The secondary action: a soft grey pill, no border. */
 @Composable
 fun AppOutlinedButton(
     text: String,
@@ -73,14 +73,43 @@ fun AppOutlinedButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    OutlinedButton(
+    Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = Sizes.button),
+        modifier = modifier.heightIn(min = Sizes.button).pressScale(),
         shape = RoundedCornerShape(Radius.pill),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = softFill(),
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = Elevation.none,
+            pressedElevation = Elevation.none,
+            focusedElevation = Elevation.none,
+            hoveredElevation = Elevation.none,
+        ),
     ) {
-        Text(text, style = AppText.label)
+        Text(text, style = ButtonText)
     }
+}
+
+private val ButtonText = AppText.button
+
+/** Sinks a Material button slightly while pressed, without stealing its ripple. */
+@Composable
+private fun Modifier.pressScale(): Modifier {
+    var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "btnPress")
+    return this
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .pointerInput(Unit) {
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false)
+                pressed = true
+                waitForUpOrCancellation()
+                pressed = false
+            }
+        }
 }
 
 /**

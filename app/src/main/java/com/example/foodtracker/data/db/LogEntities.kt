@@ -8,7 +8,13 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "food_log",
-    indices = [Index(value = ["date_epoch_day"]), Index(value = ["food_id"])],
+    // Two-column indexes that match the queries: a day's entries in time
+    // order, and "recent foods" (latest entry per food). The second one still
+    // starts with food_id, so the foreign key stays indexed. See MIGRATION_12_13.
+    indices = [
+        Index(value = ["date_epoch_day", "logged_at_millis"]),
+        Index(value = ["food_id", "logged_at_millis"]),
+    ],
     foreignKeys = [
         ForeignKey(
             entity = FoodEntity::class,

@@ -1,5 +1,8 @@
 package com.example.foodtracker.ui.screens.rich
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.SearchX
+import com.composables.icons.lucide.SlidersHorizontal
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,9 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SearchOff
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -187,7 +187,7 @@ fun RichFoodsScreen(
             if (state.selectedKeys.isEmpty()) {
                 item("empty") {
                     EmptyState(
-                        icon = Icons.Default.Tune,
+                        icon = Lucide.SlidersHorizontal,
                         title = "Nothing picked yet",
                         message = "Choose a nutrient above and every food on this " +
                             "phone gets ranked by how much of your daily goal one " +
@@ -353,7 +353,7 @@ private fun CollapsedPicker(fields: List<NutrientField>, onChange: () -> Unit) {
 private fun NoResults(state: RichFoodsState, onDropBlocker: (NutrientField) -> Unit) {
     val blocker = state.blockingField
     EmptyState(
-        icon = Icons.Default.SearchOff,
+        icon = Lucide.SearchX,
         title = if (blocker != null) {
             "No food is rich in all ${state.selectedKeys.size}"
         } else {
@@ -453,7 +453,7 @@ private fun NutrientReadout(field: NutrientField, amount: Double, goalFraction: 
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                field.label.uppercase(),
+                field.label,
                 style = AppText.eyebrow,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

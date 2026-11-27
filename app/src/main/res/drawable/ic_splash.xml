@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Splash mark: the launcher's bowl and tick, drawn for the light splash — an
+  ink bowl instead of a white one, since there is no dark tile behind it here.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group android:scaleX="0.72" android:scaleY="0.72" android:translateX="15.12" android:translateY="13.68">
+        <path android:fillColor="@color/ic_launcher_background" android:pathData="M30,58 H78 C78,72 67,81 54,81 C41,81 30,72 30,58 Z" />
+        <path android:strokeColor="@color/ic_launcher_foreground" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M42,40 L51,49 L67,31" />
+    </group>
+</vector>

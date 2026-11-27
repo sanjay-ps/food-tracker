@@ -192,7 +192,7 @@ private fun MacroLegendItem(
             )
             Spacer(Modifier.width(Spacing.s))
             Text(
-                label.uppercase(),
+                label,
                 style = AppText.eyebrow,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

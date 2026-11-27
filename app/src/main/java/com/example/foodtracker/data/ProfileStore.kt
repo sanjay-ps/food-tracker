@@ -47,6 +47,7 @@ private object Keys {
     val TRAINING_MIX = doublePreferencesKey("training_mix")
     val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
     val THEME_MODE = stringPreferencesKey("theme_mode")
+    val APPEARANCE = stringPreferencesKey("appearance")
     val COLOR_PALETTE = stringPreferencesKey("color_palette")
     val SEED_VERSION = intPreferencesKey("seed_version")
     // Backups
@@ -120,11 +121,20 @@ class ProfileStore(
     /** Default true — opt-out, not opt-in, since haptics enhance the core taps. */
     val hapticsEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.HAPTICS_ENABLED] ?: true }
 
-    // THEME_MODE and COLOR_PALETTE are no longer read. The app is dark-only
-    // dark-only, so there is nothing left for them to select.
-    // The keys stay in the DataStore deliberately: clearing them would be a
-    // migration for no gain, and leaving them means a downgrade still finds
-    // whatever the user last chose.
+    /**
+     * Light / Dark / Match system. A new key rather than the old THEME_MODE,
+     * so a value left over from a much older build cannot override the
+     * light default; the two dead keys are removed on the first write.
+     */
+    val themeMode: Flow<ThemeMode> = context.dataStore.data.map { ThemeMode.fromName(it[Keys.APPEARANCE]) }
+
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { p ->
+            p[Keys.APPEARANCE] = mode.name
+            p.remove(Keys.THEME_MODE)
+            p.remove(Keys.COLOR_PALETTE)
+        }
+    }
 
     /** Persisted SAF tree URI for backups, or null when no custom folder is set. */
     val backupFolderUri: Flow<String?> = context.dataStore.data.map { it[Keys.BACKUP_FOLDER_URI] }

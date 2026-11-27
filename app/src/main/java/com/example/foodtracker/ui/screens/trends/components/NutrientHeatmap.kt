@@ -112,7 +112,7 @@ fun NutrientHeatmap(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        row.field.label.uppercase(),
+                        row.field.label,
                         style = AppText.eyebrow,
                         // The row's own state decides how loud its name is: a
                         // nutrient you are hitting does not need to be read.
@@ -139,13 +139,13 @@ fun NutrientHeatmap(
                 Spacer(Modifier.height(Spacing.s))
                 Row(Modifier.fillMaxWidth().padding(start = LABEL_WIDTH)) {
                     Text(
-                        firstDayLabel.uppercase(),
+                        firstDayLabel,
                         style = AppText.eyebrow,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        lastDayLabel.uppercase(),
+                        lastDayLabel,
                         style = AppText.eyebrow,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

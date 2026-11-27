@@ -1,5 +1,7 @@
 package com.example.foodtracker.ui.screens.you.sheets
 
+import com.example.foodtracker.ui.components.atoms.AppSwitch
+import com.example.foodtracker.ui.components.atoms.AppTextField
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,8 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -78,7 +78,7 @@ fun AiAutofillSheet(
                 )
             }
             Spacer(Modifier.width(Spacing.m))
-            Switch(checked = enabled, onCheckedChange = onEnabledChange)
+            AppSwitch(checked = enabled, onCheckedChange = onEnabledChange)
         }
 
         if (!enabled) return@AppSheet
@@ -126,7 +126,7 @@ fun AiAutofillSheet(
 
         Spacer(Modifier.height(Spacing.xxl))
         Section("API key") {
-            OutlinedTextField(
+            AppTextField(
                 value = apiKey,
                 onValueChange = onApiKeyChange,
                 label = { Text("${provider.displayName} API key") },

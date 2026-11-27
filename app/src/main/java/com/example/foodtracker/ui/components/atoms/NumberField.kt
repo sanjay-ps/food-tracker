@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -61,7 +59,7 @@ fun NumberField(
         // and two lines if it needs them.
         Column(modifier) {
             Text(
-                label.uppercase(),
+                label,
                 style = AppText.eyebrow,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
@@ -105,7 +103,7 @@ private fun NumericBox(
     modifier: Modifier = Modifier,
     label: String? = null,
 ) {
-    OutlinedTextField(
+    AppTextField(
         value = value,
         onValueChange = { onValueChange(filterNumeric(it)) },
         modifier = modifier,
@@ -123,13 +121,6 @@ private fun NumericBox(
         textStyle = AppText.numberM,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-            focusedContainerColor = MaterialTheme.colorScheme.background,
-            unfocusedContainerColor = MaterialTheme.colorScheme.background,
-            disabledContainerColor = MaterialTheme.colorScheme.background,
-        ),
     )
 }
 

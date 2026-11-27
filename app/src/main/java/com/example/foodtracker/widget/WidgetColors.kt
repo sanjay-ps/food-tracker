@@ -2,9 +2,9 @@ package com.example.foodtracker.widget
 
 import androidx.glance.unit.ColorProvider
 import com.example.foodtracker.R
-import com.example.foodtracker.ui.theme.AppError
-import com.example.foodtracker.ui.theme.AppErrorContainer
-import com.example.foodtracker.ui.theme.AppOnErrorContainer
+import com.example.foodtracker.ui.theme.DarkError
+import com.example.foodtracker.ui.theme.DarkErrorContainer
+import com.example.foodtracker.ui.theme.DarkOnErrorContainer
 import com.example.foodtracker.ui.theme.MacroCarbs
 import com.example.foodtracker.ui.theme.MacroFat
 import com.example.foodtracker.ui.theme.MacroProtein
@@ -50,8 +50,8 @@ object WidgetColors {
     // No preview drawable references the error state — the picker preview
     // always shows a day under goal — so these name the theme values directly
     // instead of adding three resources nothing else would read.
-    val ErrorBg = ColorProvider(AppErrorContainer)
-    val OnErrorBg = ColorProvider(AppOnErrorContainer)
+    val ErrorBg = ColorProvider(DarkErrorContainer)
+    val OnErrorBg = ColorProvider(DarkOnErrorContainer)
 
     /**
      * The GoalLeft battery fill, under-goal and over-goal.
@@ -68,7 +68,7 @@ object WidgetColors {
      * the over-goal state is to be read, not to shout.
      */
     val PrimarySubtle = ColorProvider(R.color.widget_primary_subtle)
-    val ErrorSubtle = ColorProvider(AppError.copy(alpha = 0.35f))
+    val ErrorSubtle = ColorProvider(DarkError.copy(alpha = 0.35f))
 
     // Macro chip palette — fixed (not wallpaper-derived) because data viz needs
     // hue separation, and now the *app's* macro hues, so the carbs chip on the

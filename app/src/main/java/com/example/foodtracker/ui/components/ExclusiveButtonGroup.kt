@@ -1,5 +1,24 @@
 package com.example.foodtracker.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.height
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import com.example.foodtracker.ui.components.atoms.softFill
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -25,47 +44,15 @@ import com.example.foodtracker.ui.theme.Sizes
 import com.example.foodtracker.ui.theme.Spacing
 
 /**
- * Single-select segmented control — a row of mutually exclusive segments.
+ * Single-select segmented control: an ink pill slides between options on a
+ * soft track (`Week | Month` style). Selection colours animate.
  *
- * **Why this is hand-rolled.** It used to be `ButtonGroup { toggleableItem(…) }`
- * from Material 3 Expressive. Expressive is gone from the app, and with it that
- * pair: `ButtonGroup` brought the connected-corner shape-morph on press, which
- * the motion rules ban outright, and both APIs are behind
- * `ExperimentalMaterial3ExpressiveApi`. The stock M3
- * alternative, `SingleChoiceSegmentedButtonRow`, is not a drop-in either — it
- * hard-codes a check icon in the selected segment, its own 40dp height and a
- * border on *every* segment, which is three fights with the house rules for a
- * control that is a `Row` of five properties. So: `Row` + `Surface`, per the
- * `SegmentedControl` row.
+ * Re-tapping the selected segment is a no-op — no haptic, no [onSelect] —
+ * because several callers persist on every `onSelect`.
  *
- * The look:
- *  - [Radius.md] on every segment, and **zero elevation** — neither tonal nor
- *    shadow. Structure comes from the hairline, not from a lift.
- *  - Selected: transparent still, with the edge and the label at `onSurface`.
- *  - Unselected: transparent, `onSurfaceVariant` label, `outlineVariant` edge.
- *
- * Neither state is filled and neither uses the accent. That is house rule 3
- * (`docs/ui-house-rules.md`): `primary` means "on track" and belongs to data, so
- * a segmented control — which is chrome — may not borrow it.
- *  - [AppText.label] for the text and a [Sizes.touchTarget] minimum height, so
- *    the segment is a legal tap target however short its label is.
- *
- * **The haptic stays.** The tick is worth keeping: this is a
- * discrete tap on a tap target, so it fires [rememberAppHaptics]`.light()`, and
- * only on an actual change of selection. Re-tapping the selected segment is a
- * no-op — no tick, no [onSelect] — which is what the Expressive version did
- * (its `onCheckedChange(false)` was dropped) and what callers assume: several
- * of them persist on every `onSelect`.
- *
- * [fillWidth] (default true) makes every segment share the row's width equally —
- * use this when labels are short and you want the picker to feel like a
- * segmented control. Set it false when labels are long: each segment sizes to
- * its label and the whole row becomes horizontally scrollable so text stays
- * single-line and complete.
- *
- * Generic over the option type so it works for enums and arbitrary lists.
- * Equality is `==`, so `T` must have sane `equals` — every caller passes an
- * enum entry or a data class.
+ * [fillWidth] (default true) shares the row's width equally; set it false for
+ * long labels and the row sizes to its labels and scrolls horizontally.
+ * [trackColor] defaults to [com.example.foodtracker.ui.components.atoms.softFill].
  */
 @Composable
 fun <T> ExclusiveButtonGroup(
@@ -74,70 +61,99 @@ fun <T> ExclusiveButtonGroup(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     fillWidth: Boolean = true,
+    trackColor: Color = softFill(),
     label: (T) -> String,
 ) {
     val haptics = rememberAppHaptics()
-    val rowModifier =
-        if (fillWidth) modifier else modifier.horizontalScroll(rememberScrollState())
-    Row(
-        modifier = rowModifier,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-    ) {
-        options.forEach { option ->
-            val isSelected = option == selected
-            val colors = MaterialTheme.colorScheme
-            Surface(
-                onClick = {
-                    if (!isSelected) {
-                        haptics.light()
-                        onSelect(option)
-                    }
-                },
-                // Equal-weight segments when filling; wrap-to-label otherwise,
-                // which is what makes the scrolling variant scroll.
-                modifier = if (fillWidth) Modifier.weight(1f) else Modifier,
-                // Radius.md, not pill: house rule 6 reserves the pill for the
-                // FAB and primary buttons, and a row of pills is the soft
-                // geometry the editorial pass is removing.
-                shape = RoundedCornerShape(Radius.md),
-                // Monochrome selection. The accent means "on track" (house rule
-                // 3) and a segmented control is chrome, not data — a filled
-                // primaryContainer segment was the app's most repeated misuse
-                // of it, on seven screens at once. Selection now reads as the
-                // edge and the label going to full strength, which is the same
-                // state HapticFilterChip uses, so chips and segments finally
-                // agree about what "selected" looks like.
-                color = Color.Transparent,
-                contentColor = if (isSelected) colors.onSurface else colors.onSurfaceVariant,
-                border = BorderStroke(
-                    Elevation.hairline,
-                    if (isSelected) colors.onSurface else colors.outlineVariant,
-                ),
-                tonalElevation = Elevation.none,
-                shadowElevation = Elevation.none,
-            ) {
-                // Surface propagates its min constraints, so under a weight this
-                // Box is already the segment's full width and Center does the
-                // rest; unweighted it shrinks to the label plus padding.
-                Box(
-                    modifier = Modifier
-                        .heightIn(min = Sizes.touchTarget)
-                        .padding(horizontal = Spacing.m, vertical = Spacing.s),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    // Deliberately unconstrained lines. Under [fillWidth] a long
-                    // label wraps and centres rather than ellipsing — AddFood's
-                    // category rows need that ("South Indian" does not fit a
-                    // third of a card at 13sp) and the segment's height grows
-                    // with it. Unweighted the row is measured unbounded, so
-                    // there is nothing to wrap against and it stays one line.
-                    Text(
-                        text = label(option),
-                        style = AppText.label,
-                        textAlign = TextAlign.Center,
+    val colors = MaterialTheme.colorScheme
+    val pick: (T) -> Unit = { option ->
+        if (option != selected) {
+            haptics.light()
+            onSelect(option)
+        }
+    }
+    if (fillWidth) {
+        // Equal segments, so the ink pill can slide between them as one shape.
+        // It is drawn behind the row rather than laid out, which keeps this
+        // control free of intrinsic measurement.
+        val index = options.indexOf(selected).coerceAtLeast(0).toFloat()
+        val at by animateFloatAsState(
+            index,
+            spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow),
+            label = "segX",
+        )
+        val pill = colors.primary
+        val gap = Spacing.xs
+        Row(
+            modifier
+                .clip(RoundedCornerShape(Radius.pill))
+                .background(trackColor)
+                .padding(Spacing.xs)
+                .drawBehind {
+                    val g = gap.toPx()
+                    val w = (size.width - g * (options.size - 1)) / options.size
+                    drawRoundRect(
+                        color = pill,
+                        topLeft = Offset(at * (w + g), 0f),
+                        size = Size(w, size.height),
+                        cornerRadius = CornerRadius(size.height / 2f),
                     )
-                }
+                },
+            horizontalArrangement = Arrangement.spacedBy(gap),
+        ) {
+            options.forEach { option ->
+                val isSelected = option == selected
+                val ink by animateColorAsState(
+                    if (isSelected) colors.onPrimary else colors.onSurfaceVariant, label = "segInk",
+                )
+                Segment(label(option), ink, isSelected, Modifier.weight(1f)) { pick(option) }
             }
         }
+    } else {
+        Row(
+            modifier = modifier
+                .horizontalScroll(rememberScrollState())
+                .clip(RoundedCornerShape(Radius.pill))
+                .background(trackColor)
+                .padding(Spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            options.forEach { option ->
+                val isSelected = option == selected
+                val fill by animateColorAsState(
+                    if (isSelected) colors.primary else Color.Transparent, label = "segFill",
+                )
+                val ink by animateColorAsState(
+                    if (isSelected) colors.onPrimary else colors.onSurfaceVariant, label = "segInk",
+                )
+                Segment(
+                    label(option), ink, isSelected,
+                    Modifier.clip(RoundedCornerShape(Radius.pill)).background(fill),
+                ) { pick(option) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Segment(
+    text: String,
+    ink: Color,
+    isSelected: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(Radius.pill))
+            .semantics { this.selected = isSelected; role = Role.Tab }
+            .clickable(onClick = onClick)
+            .heightIn(min = 40.dp)
+            .padding(horizontal = Spacing.m, vertical = Spacing.s),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Unconstrained lines: an equal-width segment wraps a long label
+        // ("South Indian") rather than clipping it.
+        Text(text = text, style = AppText.label, color = ink, textAlign = TextAlign.Center)
     }
 }

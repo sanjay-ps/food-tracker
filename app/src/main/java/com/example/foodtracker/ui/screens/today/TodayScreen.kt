@@ -2,21 +2,16 @@ package com.example.foodtracker.ui.screens.today
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
@@ -34,55 +29,53 @@ import com.example.foodtracker.data.MealType
 import com.example.foodtracker.data.NutrientField
 import com.example.foodtracker.data.db.FoodLogWithFood
 import com.example.foodtracker.ui.appViewModel
-import com.example.foodtracker.ui.components.atoms.AppDivider
-import com.example.foodtracker.ui.components.atoms.AppTopBar
-import com.example.foodtracker.ui.components.atoms.grouped
 import com.example.foodtracker.ui.components.NutrientContributionSheet
+import com.example.foodtracker.ui.components.atoms.staggerIn
 import com.example.foodtracker.ui.components.sheets.EntryEditSheet
 import com.example.foodtracker.ui.components.sheets.WaterSheet
 import com.example.foodtracker.ui.components.sheets.WeighInSheet
+import com.example.foodtracker.ui.navigation.bottomBarClearance
 import com.example.foodtracker.ui.rememberAppHaptics
 import com.example.foodtracker.ui.screens.today.components.CalorieHero
-import com.example.foodtracker.ui.screens.today.components.DayStrip
+import com.example.foodtracker.ui.screens.today.components.BentoFacts
+import com.example.foodtracker.ui.screens.today.components.ClosingQuote
+import com.example.foodtracker.ui.screens.today.components.BentoMacros
+import com.example.foodtracker.ui.screens.today.components.RhythmHeatmap
+import com.example.foodtracker.ui.screens.today.components.StreakTile
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.example.foodtracker.ui.screens.today.components.MealsSection
-import com.example.foodtracker.ui.screens.today.components.NutrientSummarySection
-import com.example.foodtracker.ui.components.atoms.Section
-import com.example.foodtracker.ui.screens.today.components.StatRow
+import com.example.foodtracker.ui.screens.today.components.PlanCard
+import com.example.foodtracker.ui.screens.today.components.TodayHeader
 import com.example.foodtracker.ui.theme.AppText
 import com.example.foodtracker.ui.theme.Radius
 import com.example.foodtracker.ui.theme.Spacing
 import com.example.foodtracker.util.DateUtil
-import androidx.compose.foundation.shape.RoundedCornerShape
 import kotlinx.coroutines.launch
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /** A modal this screen can be asked to open on arrival — deep links land here. */
 enum class TodaySheet { Water, Weight }
 
 /**
- * Today. The first bottom-bar destination.
+ * Today — the home tab.
  *
- * The screen itself is deliberately thin: a scaffold, a `LazyColumn` of five
- * blocks, and the modals those blocks open. Everything with an opinion lives in
- * `today/components/`. What it replaced was a 1 176-line `HomeScreen.kt` that
- * held its own cards, its own meters, its own nutrient sheet and a second copy
- * of the serving-sheet host.
+ * Top to bottom: greeting + day pill, the calorie hero (textured gradient
+ * with the week's bars and a slight scroll parallax), then **meals** — what
+ * you act on most, so it sits above the fold — then the bento grid (macros,
+ * water, streak, weight, nutrient score), the plan (when set), "Your rhythm"
+ * (an 18-week heatmap) and the closing quote. Each card rises in on first show.
  *
- * **No bottom bar and no `Today` back arrow here** — the nav host owns both, so
- * switching destinations keeps each one's scroll position instead of rebuilding
- * the bar inside every screen.
+ * Logging lives on the floating "+" beside the tab bar, so there is no FAB
+ * here; each meal row also has its own add button.
  *
- * **No loading state, by design.** `TodayViewModel.state` has a non-null initial
- * value built from a default profile, so the first frame is real layout with
- * placeholder numbers; the ring's 450ms value animation absorbs the transition
- * when the database arrives. A skeleton would be a worse version of that.
+ * **No loading state, by design.** `TodayViewModel.state` has a non-null
+ * initial value; figures show em-dashes until `loaded` flips, then count up.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodayScreen(
-    onAddFoodToMeal: (MealType) -> Unit,
+    /** Opens the food picker for a meal on the day on screen (so back-filling a past day works). */
+    onAddFoodToMeal: (MealType, Long) -> Unit,
+    onOpenYou: () -> Unit,
     onOpenRichFoods: (String?) -> Unit,
     onOpenAllNutrients: (Long) -> Unit,
     onOpenPlan: () -> Unit,
@@ -92,6 +85,12 @@ fun TodayScreen(
 ) {
     val vm: TodayViewModel = appViewModel { TodayViewModel(it.repository, it.profileStore) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val history by vm.history.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    // Scroll offset of the hero while it is the first item; read at draw time.
+    val heroParallax = {
+        if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 0f
+    }
     val haptics = rememberAppHaptics()
     val scope = rememberCoroutineScope()
     val snackbars = remember { SnackbarHostState() }
@@ -101,8 +100,7 @@ fun TodayScreen(
     var sheet by remember { mutableStateOf<TodaySheet?>(null) }
 
     // A deep link (widget or reminder tap) asks for a sheet rather than a
-    // route: water and weight stopped being pages in phase 4. Consumed on
-    // arrival so a configuration change does not reopen it.
+    // route. Consumed on arrival so a configuration change does not reopen it.
     LaunchedEffect(openSheet) {
         if (openSheet != null) {
             sheet = openSheet
@@ -111,148 +109,65 @@ fun TodayScreen(
     }
 
     val scheme = MaterialTheme.colorScheme
+    val clearance = bottomBarClearance()
+    val weekStart = weekStartOf(state.epochDay)
+    val today = DateUtil.todayEpochDay()
+    val selectDay: (Long) -> Unit = { haptics.light(); vm.setDay(it) }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = scheme.background,
         topBar = {
-            AppTopBar(
-                title = DateUtil.formatHeader(state.epochDay),
-                subtitle = DateUtil.epochDayToDate(state.epochDay)
-                    .format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())),
+            TodayHeader(
+                epochDay = state.epochDay,
+                name = state.profile.name,
+                onSelectDay = selectDay,
+                onOpenYou = onOpenYou,
             )
         },
         snackbarHost = {
-            // Material's default snackbar uses the *inverse* scheme, which on a
-            // black canvas is a cream slab — the loudest surface in the app, for
-            // its least important message. The rules allow five fills and this is not
-            // one of them, so it gets the same hairline-on-near-black treatment
-            // as every other container.
-            SnackbarHost(snackbars) { data ->
+            SnackbarHost(snackbars, Modifier.padding(bottom = clearance - Spacing.l)) { data ->
                 Snackbar(
                     snackbarData = data,
                     shape = RoundedCornerShape(Radius.md),
-                    containerColor = scheme.surfaceContainerHigh,
-                    contentColor = scheme.onSurface,
-                    actionColor = scheme.primary,
+                    containerColor = scheme.inverseSurface,
+                    contentColor = scheme.inverseOnSurface,
+                    actionColor = scheme.tertiary,
                 )
             }
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { haptics.light(); onAddFoodToMeal(currentMeal()) },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Log", style = AppText.label) },
-                containerColor = scheme.primary,
-                contentColor = scheme.onPrimary,
-                shape = RoundedCornerShape(Radius.pill),
-                // House rule 6 bans elevation everywhere, the FAB included. All four
-                // states, not just the default — leaving focused/hovered at
-                // their 6dp defaults keeps a lift behind on a plugged-in phone.
-                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
-            )
         },
     ) { inner ->
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(
                 top = inner.calculateTopPadding() + Spacing.s,
-                // Clears the FAB: the plan keeps it visible on scroll, so the
-                // last card has to be able to get out from under it.
-                bottom = inner.calculateBottomPadding() + 96.dp,
+                bottom = clearance,
                 start = Spacing.gutter,
                 end = Spacing.gutter,
             ),
-            // 24dp, not 32: each section carries a rule under its standing
-            // head (see Section.kt), so the whitespace no longer has to do the
-            // separating on its own.
-            verticalArrangement = Arrangement.spacedBy(Spacing.xxl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
-            item("dayStrip") {
-                DayStrip(selected = state.epochDay, onSelect = { haptics.light(); vm.setDay(it) })
-            }
             item("hero") {
                 CalorieHero(
-                    state.totalNutrients,
-                    state.goals,
+                    consumed = state.totalNutrients,
+                    goals = state.goals,
+                    weekKcal = state.weekKcal,
+                    selectedIndex = (state.epochDay - weekStart).toInt(),
+                    todayIndex = (today - weekStart).toInt().takeIf { it in 0..6 },
+                    isToday = state.isToday,
                     loaded = state.loaded,
-                    // The shortcut the Trends heatmap used to own. Same
-                    // destination, on a row you can actually hit.
-                    // The same sheet the nutrient rows below open. Tapping
-                    // "Carbs" asks what made up today's carbs; it does not ask
-                    // for a shopping list, and sending it to Rich-in answered a
-                    // question the tap had not posed — and could not answer at
-                    // all once you were over the number.
-                    onMacroClick = { field -> haptics.light(); detailField = field },
+                    onDayClick = { i -> selectDay(weekStart + i) },
+                    modifier = Modifier.staggerIn(0),
+                    parallax = heroParallax,
+                    streak = history.streak.current,
                 )
-            }
-            // Directly under the hero, and above Intake.
-            //
-            // It used to sit third, between Intake and Meals, where it was one
-            // more 11sp uppercase head in a column of them — a plan you had set
-            // deliberately that morning, reported more quietly than the water
-            // you had not. Position is the whole fix: the one section that is a
-            // list of things still to do belongs next to the figure it is going
-            // to move.
-            //
-            // Still one row and not the list. A whole day planned is ~10 rows
-            // mirroring the meal structure directly above the real meal
-            // structure, which is why the list is a page. What the row gained
-            // is the foods' names, so it says what is left rather than only how
-            // many — a count on its own reads as a score, and the plan is not a
-            // thing to be scored. Absent entirely when no plan is set, so Today
-            // is unchanged for anyone who skips the feature.
-            if (state.hasPlan) {
-                item("plan") {
-                    Section(
-                        "Plan",
-                        trailing = {
-                            Text(
-                                state.planSummary,
-                                style = AppText.bodyS,
-                                color = scheme.onSurfaceVariant,
-                            )
-                        },
-                    ) {
-                        StatRow(
-                            label = "To log",
-                            // Em-dash for "nothing left", the same convention
-                            // the water and weight rows use for "nothing yet".
-                            value = if (state.planRemaining > 0) state.planRemaining.toString() else "\u2014",
-                            unit = when (state.planRemaining) {
-                                0 -> ""
-                                1 -> "food"
-                                else -> "foods"
-                            },
-                            caption = planCaption(state.planNextFoods),
-                            onClick = { haptics.light(); onOpenPlan() },
-                        )
-                    }
-                }
-            }
-            item("tiles") {
-                Section("Intake") {
-                    StatRow(
-                        label = "Water",
-                        value = if (state.waterMl > 0) grouped(state.waterMl.toDouble()) else "\u2014",
-                        unit = "ml",
-                        caption = "of ${grouped(state.goals.waterMl.toDouble())} ml",
-                        onClick = { sheet = TodaySheet.Water },
-                    )
-                    AppDivider()
-                    StatRow(
-                        label = "Weight",
-                        value = state.latestWeight?.let { "%.1f".format(it.weightKg) } ?: "\u2014",
-                        unit = if (state.latestWeight != null) "kg" else "",
-                        caption = state.latestWeight?.let { agoLabel(it.dateEpochDay) } ?: "Tap to log",
-                        onClick = { sheet = TodaySheet.Weight },
-                    )
-                }
             }
             item("meals") {
                 MealsSection(
                     groups = state.mealGroups,
-                    activeMeal = currentMeal(),
+                    activeMeal = if (state.isToday) currentMeal() else null,
                     totalKcal = state.totalNutrients.calories,
-                    onAdd = { haptics.light(); onAddFoodToMeal(it) },
+                    onAdd = { haptics.light(); onAddFoodToMeal(it, state.epochDay) },
                     onEditEntry = { editing = it },
                     onDeleteEntry = { row ->
                         haptics.light()
@@ -267,24 +182,67 @@ fun TodayScreen(
                             else vm.clearUndo()
                         }
                     },
+                    modifier = Modifier.staggerIn(4),
                 )
             }
-            item("nutrients") {
-                NutrientSummarySection(
-                    totals = state.totalNutrients,
+            item("bento") {
+                BentoMacros(
+                    consumed = state.totalNutrients,
+                    goals = state.goals,
+                    waterMl = state.waterMl,
+                    waterGoalMl = state.goals.waterMl,
+                    onMacro = { field -> haptics.light(); detailField = field },
+                    onWater = { haptics.light(); sheet = TodaySheet.Water },
+                    modifier = Modifier.staggerIn(1),
+                )
+            }
+            item("streak") {
+                StreakTile(
+                    streak = history.streak,
+                    loggedDays = history.loggedDays,
+                    loggedToday = today in history.loggedDays,
+                    modifier = Modifier.staggerIn(2),
+                    onClick = { haptics.light(); selectDay(today) },
+                )
+            }
+            item("facts") {
+                BentoFacts(
+                    weightKg = state.latestWeight?.weightKg,
+                    weightCaption = state.latestWeight?.let { agoLabel(it.dateEpochDay) } ?: "Tap to log",
+                    consumed = state.totalNutrients,
                     goals = state.goals,
                     hasLogs = state.logs.isNotEmpty(),
-                    // The full list is a page, not a sheet — see
-                    // AllNutrientsScreen's docstring for why.
-                    onSeeAll = { onOpenAllNutrients(state.epochDay) },
-                    onPickNutrient = { detailField = it },
+                    onWeight = { haptics.light(); sheet = TodaySheet.Weight },
+                    onNutrients = { onOpenAllNutrients(state.epochDay) },
+                    modifier = Modifier.staggerIn(3),
                 )
             }
+            // Absent entirely when no plan is set, so Today is unchanged for
+            // anyone who skips the feature.
+            if (state.hasPlan) {
+                item("plan") {
+                    PlanCard(
+                        remaining = state.planRemaining,
+                        summary = state.planSummary,
+                        caption = planCaption(state.planNextFoods),
+                        onClick = { haptics.light(); onOpenPlan() },
+                        modifier = Modifier.staggerIn(3),
+                    )
+                }
+            }
+            item("rhythm") {
+                RhythmHeatmap(
+                    start = history.heatStart,
+                    kcal = history.heatKcal,
+                    goal = history.goalKcal,
+                    onDayClick = selectDay,
+                    modifier = Modifier.staggerIn(6),
+                )
+            }
+            item("quote") { ClosingQuote() }
         }
     }
 
-    // Transient detail about one row, raised over this page. The only sheet in
-    // the nutrient flow now, so there is no sheet-over-sheet transition left.
     detailField?.let { field ->
         NutrientContributionSheet(
             field = field,
@@ -312,13 +270,7 @@ fun TodayScreen(
     }
 }
 
-/**
- * The foods still to log, named — up to three, then a count.
- *
- * Three is what fits one line at the default font scale; the row allows a
- * second and ellipsises after that, so a long fourth name is stated as "+2
- * more" rather than cut off mid-word.
- */
+/** The foods still to log, named — up to three, then a count. */
 private fun planCaption(nextFoods: List<String>): String {
     if (nextFoods.isEmpty()) return "Everything planned is logged"
     val shown = nextFoods.take(3)
@@ -326,20 +278,13 @@ private fun planCaption(nextFoods: List<String>): String {
     return shown.joinToString(" · ") + if (rest > 0) " · +$rest more" else ""
 }
 
-/**
- * The meal the wall clock says you are in. Drives the auto-expanded row and the
- * FAB.
- *
- * Delegates now: this file and the deep-link router each had their own copy and
- * the two drew the snack/dinner line an hour apart. See
- * [MealType.currentForTime].
- */
+/** The meal the wall clock says you are in. See [MealType.currentForTime]. */
 internal fun currentMeal(): MealType = MealType.currentForTime()
 
 private fun agoLabel(epochDay: Long): String {
     val days = DateUtil.todayEpochDay() - epochDay
     return when {
-        days <= 0L -> "Today"
+        days <= 0L -> "Logged today"
         days == 1L -> "Yesterday"
         else -> "$days days ago"
     }

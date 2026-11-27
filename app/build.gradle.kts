@@ -95,11 +95,21 @@ android {
     }
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
+    // Downloadable Google Fonts (Manrope, Inter) — fetched by Play Services, zero APK cost.
+    implementation(libs.androidx.compose.ui.text.google.fonts)
+    // Lucide line icons. R8 strips every icon the app does not reference.
+    implementation(libs.lucide.icons)
+    // Backdrop blur for the floating tab bar (RenderEffect on API 31+).
+    implementation(libs.haze)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.core.ktx)
@@ -139,6 +149,7 @@ dependencies {
     // the existing Room DAOs inside provideGlance (suspend context, no extra
     // serialization layer) and ping widgets to update after food log writes.
     implementation(libs.androidx.glance.appwidget)
+    testImplementation(libs.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

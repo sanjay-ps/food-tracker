@@ -1,5 +1,10 @@
 package com.example.foodtracker.ui.screens.addfood
 
+import com.example.foodtracker.ui.components.OptionGrid
+import com.example.foodtracker.ui.components.atoms.AppTextField
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.Sparkles
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -7,7 +12,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,15 +24,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,7 +47,6 @@ import com.example.foodtracker.data.NutritionBasis
 import com.example.foodtracker.data.ServingVariant
 import com.example.foodtracker.ui.appViewModel
 import com.example.foodtracker.ui.components.ExclusiveButtonGroup
-import com.example.foodtracker.ui.components.HapticFilterChip
 import com.example.foodtracker.ui.components.atoms.AppButton
 import com.example.foodtracker.ui.components.atoms.AppDivider
 import com.example.foodtracker.ui.components.atoms.AppTextButton
@@ -166,7 +165,7 @@ fun AddFoodScreen(
 
                     Spacer(Modifier.height(Spacing.xxl))
                     Section("Instructions") {
-                        OutlinedTextField(
+                        AppTextField(
                             value = aiInstructions,
                             onValueChange = { aiInstructions = it },
                             label = { Text("Optional") },
@@ -331,7 +330,7 @@ private fun BasicsSection(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
+                AppTextField(
                     value = state.name,
                     onValueChange = { v -> vm.update { it.copy(name = v) } },
                     label = { Text("Name", style = AppText.body) },
@@ -351,7 +350,7 @@ private fun BasicsSection(
                         modifier = Modifier.size(Sizes.iconButton),
                     ) {
                         Icon(
-                            Icons.Default.AutoAwesome,
+                            Lucide.Sparkles,
                             contentDescription = "Ask AI to fill nutrition",
                             tint = MaterialTheme.colorScheme.primary,
                         )
@@ -373,7 +372,7 @@ private fun BasicsSection(
             }
 
             Spacer(Modifier.height(Spacing.m))
-            OutlinedTextField(
+            AppTextField(
                 value = state.brand,
                 onValueChange = { v -> vm.update { it.copy(brand = v) } },
                 label = { Text("Brand (optional)", style = AppText.body) },
@@ -393,22 +392,13 @@ private fun BasicsSection(
 
         Spacer(Modifier.height(Spacing.xxl))
         Section("Category") {
-            // One wrapped row of pills, not four segmented controls stacked.
-            // The categories are a flat set with no order; a segmented
-            // control claims an order and forced three-per-row columns that cut
-            // "South Indian" in half.
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-                verticalArrangement = Arrangement.spacedBy(Spacing.s),
-            ) {
-                FoodCategory.entries.forEach { cat ->
-                    HapticFilterChip(
-                        selected = state.category == cat,
-                        onClick = { vm.update { it.copy(category = cat) } },
-                        label = { Text(cat.displayName, style = AppText.label) },
-                    )
-                }
-            }
+            // A radio grid: ten short names fit two to a row without a long column.
+            OptionGrid(
+                options = FoodCategory.entries,
+                selected = state.category,
+                onSelect = { cat -> vm.update { it.copy(category = cat) } },
+                label = { it.displayName },
+            )
         }
 
         Spacer(Modifier.height(Spacing.xxl))
@@ -425,7 +415,7 @@ private fun BasicsSection(
                     compact = true,
                     modifier = Modifier.weight(1f),
                 )
-                OutlinedTextField(
+                AppTextField(
                     value = state.servingLabel,
                     onValueChange = { v -> vm.update { it.copy(servingLabel = v) } },
                     label = { Text("Serving label", style = AppText.body) },
@@ -551,7 +541,7 @@ private fun FieldSection(
                 )
                 Spacer(Modifier.width(Spacing.s))
                 Icon(
-                    Icons.Default.ExpandMore,
+                    Lucide.ChevronDown,
                     contentDescription = if (expanded) "Collapse $title" else "Expand $title",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.rotate(chevron),

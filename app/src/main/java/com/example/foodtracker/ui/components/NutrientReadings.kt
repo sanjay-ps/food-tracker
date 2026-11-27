@@ -93,10 +93,10 @@ fun List<NutrientReading>.scored(): List<NutrientReading> = filter { it.scored }
  */
 private const val CAP_TICK = 0.8f
 
-private val NutrientReading.meterFraction: Float
+internal val NutrientReading.meterFraction: Float
     get() = if (limit) (fraction * CAP_TICK).toFloat() else fraction.toFloat()
 
-private val NutrientReading.capTick: Float?
+internal val NutrientReading.capTick: Float?
     get() = if (limit) CAP_TICK else null
 
 /**

@@ -1,5 +1,25 @@
 package com.example.foodtracker.ui.screens.you
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
+import com.example.foodtracker.ui.components.atoms.AppSwitch
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.composables.icons.lucide.ChevronRight
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.UserRound
+import com.example.foodtracker.ui.components.atoms.AppOutlinedButton
+import com.example.foodtracker.ui.components.atoms.PastelIcon
+import com.example.foodtracker.ui.components.atoms.RoundIconButton
+import com.example.foodtracker.ui.components.atoms.cardColor
+import com.example.foodtracker.ui.theme.Pastel
+import com.example.foodtracker.ui.theme.Radius
+import com.example.foodtracker.ui.theme.meshGradient
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,11 +32,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -110,56 +127,100 @@ fun ProfileHeader(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Section(
-        title = "Profile",
-        modifier = modifier,
-        trailing = {
-            Text(goalLine(profile), style = AppText.bodyS, color = scheme.onSurfaceVariant)
-        },
+    val initials = profile.name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        .take(2).joinToString("") { it.first().uppercase() }
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.lg + 4.dp))
+            .meshGradient(animate = false)
+            .padding(20.dp)
     ) {
-        // Blank name renders "Welcome" — onboarding does not force one, and an
-        // empty headline reads as a bug.
-        Text(
-            profile.name.ifBlank { "Welcome" },
-            style = AppText.titleL,
-            color = scheme.onSurface,
-        )
-
-        // Equal thirds, not SpaceBetween: the blocks hold values of very
-        // different widths ("25" next to "Moderate (3-5 days/week)"), and
-        // without a weight the long one pushes its neighbours off their column
-        // and overlaps them. That overlap was a shipped bug; the weights are
-        // load-bearing, not tidiness.
-        Spacer(Modifier.height(Spacing.l))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            StatBlock("Age", profile.ageYears.toDouble(), "yrs", Modifier.weight(1f))
-            StatBlock("Height", profile.heightCm.toDouble(), "cm", Modifier.weight(1f))
-            // The one stat that does not go through formatValue: that rule
-            // drops the decimal above 10, and a weigh-in is read to 0.1 kg.
-            StatBlock("Weight", "%.1f".format(profile.weightKg), "kg", Modifier.weight(1f))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(scheme.primary),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (profile.name.isBlank()) {
+                    Icon(Lucide.UserRound, contentDescription = null, tint = scheme.onPrimary, modifier = Modifier.size(26.dp))
+                } else {
+                    Text(initials, style = AppText.titleL, color = scheme.onPrimary)
+                }
+            }
+            Spacer(Modifier.width(Spacing.m))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    profile.name.ifBlank { "Welcome" },
+                    style = AppText.titleL,
+                    color = scheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(goalLine(profile), style = AppText.bodyS, color = scheme.onSurfaceVariant)
+            }
+            RoundIconButton(icon = Lucide.Pencil, contentDescription = "Edit profile & goals", onClick = onEdit)
         }
-        Spacer(Modifier.height(Spacing.xl))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            StatBlock("BMR", GoalCalculator.bmr(profile), "kcal", Modifier.weight(1f))
-            StatBlock("TDEE", GoalCalculator.tdee(profile), "kcal", Modifier.weight(1f))
-            // Activity is a phrase, not a measurement, so it reads at body size
-            // and is allowed two lines. At the number styles it needed three,
-            // and three lines in a weighted column is what produced the overlap.
-            StatBlock(
-                label = "Activity",
-                value = profile.activityLevel.displayName,
-                unit = "",
+        Spacer(Modifier.height(Spacing.l))
+        // Equal-height rows; activity is prose, so it gets a full-width row
+        // of its own instead of squeezing into a number-sized tile.
+        Row(
+            Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+        ) {
+            GlassStat("Age", profile.ageYears.toString(), "yrs", Modifier.weight(1f).fillMaxHeight())
+            GlassStat("Height", profile.heightCm.toString(), "cm", Modifier.weight(1f).fillMaxHeight())
+            GlassStat("Weight", "%.1f".format(profile.weightKg), "kg", Modifier.weight(1f).fillMaxHeight())
+        }
+        Spacer(Modifier.height(Spacing.s))
+        Row(
+            Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+        ) {
+            GlassStat("BMR", formatValue(GoalCalculator.bmr(profile)), "kcal", Modifier.weight(1f).fillMaxHeight())
+            GlassStat("TDEE", formatValue(GoalCalculator.tdee(profile)), "kcal", Modifier.weight(1f).fillMaxHeight())
+        }
+        Spacer(Modifier.height(Spacing.s))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radius.md))
+                .background(cardColor().copy(alpha = 0.62f))
+                .padding(horizontal = Spacing.m, vertical = Spacing.m),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Activity", style = AppText.eyebrow, color = scheme.onSurfaceVariant)
+            Spacer(Modifier.width(Spacing.m))
+            Text(
+                profile.activityLevel.displayName,
+                style = AppText.label,
+                color = scheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.End,
                 modifier = Modifier.weight(1f),
-                valueStyle = AppText.body,
-                maxLines = 2,
             )
         }
-        Spacer(Modifier.height(Spacing.l))
-        AppDivider()
-        // The old full-width filled button here was the loudest shape on the
-        // page for an action nobody is looking for. As a row it joins the one
-        // rhythm the rest of You now reads in — label left, affordance right.
-        SettingRow(label = "Edit profile & goals", onClick = onEdit)
+    }
+}
+
+/** A frosted tile on the profile gradient. */
+@Composable
+private fun GlassStat(label: String, value: String, unit: String, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        modifier
+            .clip(RoundedCornerShape(Radius.md))
+            .background(cardColor().copy(alpha = 0.62f))
+            .padding(horizontal = Spacing.m, vertical = Spacing.s + 2.dp)
+    ) {
+        Text(label, style = AppText.eyebrow, color = scheme.onSurfaceVariant, maxLines = 1)
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, style = AppText.numberM, color = scheme.onSurface, maxLines = 1)
+            if (unit.isNotEmpty()) Text(NBSP + unit, style = AppText.bodyS, color = scheme.onSurfaceVariant, maxLines = 1)
+        }
     }
 }
 
@@ -227,7 +288,7 @@ fun GoalSection(
             StatBlock("Target", "%.1f".format(goalWeight), "kg", Modifier.weight(1f))
         }
         Spacer(Modifier.height(Spacing.l))
-        Meter(fraction = fraction ?: 0f, color = scheme.primary, height = 6.dp)
+        Meter(fraction = fraction ?: 0f, color = scheme.secondary, height = 8.dp)
         if (!done && rate > 0.0 && progress.weeksRemaining > 0.0) {
             Spacer(Modifier.height(Spacing.m))
             Text(
@@ -281,7 +342,7 @@ fun StatBlock(
     val scheme = MaterialTheme.colorScheme
     Column(modifier) {
         Text(
-            label.uppercase(),
+            label,
             style = AppText.eyebrow,
             color = scheme.onSurfaceVariant,
             maxLines = 1,
@@ -345,7 +406,7 @@ fun TargetRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            if (headline) label.uppercase() else label,
+            label,
             style = if (headline) AppText.eyebrow else AppText.body,
             color = scheme.onSurfaceVariant,
             maxLines = 1,
@@ -366,7 +427,7 @@ fun TargetRow(
                 style = if (headline) AppText.numberL else AppText.numberM,
                 // The accent means "this moved", which is data about the edit
                 // in progress — rule 3's one sanctioned use of it here.
-                color = if (changed) scheme.primary else scheme.onSurface,
+                color = if (changed) scheme.tertiary else scheme.onSurface,
             )
             if (unit.isNotEmpty()) {
                 Text(NBSP + unit, style = AppText.bodyS, color = scheme.onSurfaceVariant)
@@ -437,18 +498,11 @@ fun TargetList(
  */
 @Composable
 fun SeeAllTargetsRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth()) {
-        AppDivider()
-        Text(
-            "See all $TARGET_COUNT targets",
-            style = AppText.label,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(vertical = Spacing.m),
-        )
-    }
+    AppOutlinedButton(
+        text = "See all $TARGET_COUNT targets",
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth().padding(top = Spacing.m),
+    )
 }
 
 // ---- Settings rows --------------------------------------------------------
@@ -479,9 +533,11 @@ fun SettingRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     value: String? = null,
+    icon: ImageVector? = null,
+    pastel: Pastel = Pastel.Sand,
 ) {
     val scheme = MaterialTheme.colorScheme
-    SettingRowFrame(label, modifier.clickable(onClick = onClick)) {
+    SettingRowFrame(label, modifier.clickable(onClick = onClick), icon, pastel) {
         if (value != null) {
             Text(
                 value,
@@ -495,10 +551,10 @@ fun SettingRow(
             Spacer(Modifier.width(Spacing.s))
         }
         Icon(
-            Icons.Default.ChevronRight,
+            Lucide.ChevronRight,
             contentDescription = null,
             tint = scheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(18.dp),
         )
     }
 }
@@ -510,9 +566,11 @@ fun SettingToggleRow(
     checked: Boolean,
     onChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    pastel: Pastel = Pastel.Sand,
 ) {
-    SettingRowFrame(label, modifier) {
-        Switch(checked = checked, onCheckedChange = onChange)
+    SettingRowFrame(label, modifier, icon, pastel) {
+        AppSwitch(checked = checked, onCheckedChange = onChange)
     }
 }
 
@@ -525,6 +583,8 @@ fun SettingToggleRow(
 private fun SettingRowFrame(
     label: String,
     modifier: Modifier,
+    icon: ImageVector?,
+    pastel: Pastel,
     trailing: @Composable () -> Unit,
 ) {
     Row(
@@ -534,6 +594,10 @@ private fun SettingRowFrame(
             .padding(vertical = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (icon != null) {
+            PastelIcon(icon, pastel, size = 36.dp)
+            Spacer(Modifier.width(Spacing.m))
+        }
         Text(
             label,
             style = AppText.body,

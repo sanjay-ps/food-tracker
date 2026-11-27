@@ -32,7 +32,11 @@ object YouRoute
 // ---- Leaf pages ------------------------------------------------------------
 
 @Serializable
-data class LogFoodRoute(val mealType: String)
+data class LogFoodRoute(
+    val mealType: String,
+    /** The day to log into — the day on screen in Today. Null means today. */
+    val epochDay: Long? = null,
+)
 
 @Serializable
 data class AddFoodRoute(val prefillBarcode: String? = null)

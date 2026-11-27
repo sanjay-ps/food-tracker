@@ -1,222 +1,309 @@
 package com.example.foodtracker.ui.screens.today.components
 
+import com.example.foodtracker.ui.theme.Rich
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Flame
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.foodtracker.data.NutrientField
-import com.example.foodtracker.data.NutrientFieldsByKey
 import com.example.foodtracker.data.NutrientGoals
 import com.example.foodtracker.data.Nutrients
-import com.example.foodtracker.ui.components.atoms.Meter
+import com.example.foodtracker.ui.components.atoms.AnimatedCount
+import com.example.foodtracker.ui.components.atoms.cardColor
 import com.example.foodtracker.ui.components.atoms.grouped
 import com.example.foodtracker.ui.theme.AppText
-import com.example.foodtracker.ui.theme.MacroCarbs
-import com.example.foodtracker.ui.theme.MacroFat
-import com.example.foodtracker.ui.theme.MacroFiber
-import com.example.foodtracker.ui.theme.MacroProtein
+import com.example.foodtracker.ui.theme.Radius
 import com.example.foodtracker.ui.theme.Spacing
+import com.example.foodtracker.ui.theme.meshGradient
+import com.example.foodtracker.ui.theme.dotTexture
+import androidx.compose.ui.graphics.graphicsLayer
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+private val DAY_INITIALS = listOf("M", "T", "W", "T", "F", "S", "S")
+
 /**
- * The day's calories — reference shot 4, the shot the look was taken from.
- *
- * **The ring is gone.** It came from shots 1, 5 and 9 — Direction A, the one
- * the app rejected — and it was the single loudest piece of that anatomy left
- * on the main screen. Shot 4, the direction actually chosen, draws this as
- * an oversized tabular numeral over a thin rule with two labelled columns
- * underneath, and that is what this is now.
- *
- * What a ring cost that this does not: 140dp of height to encode one fraction,
- * a 40sp cap on the number inside it, and a second circular shape language on a
- * screen whose structure is otherwise rectilinear. The number can now be 64sp,
- * which is the point — "the only thing allowed to be big is a number".
+ * The day's calories on a soft gradient card: what you've eaten as one big
+ * counting number (left / goal / week average underneath), the week as seven bars (the day on screen in the accent,
+ * tap any past bar to jump to it), and three figures along the bottom.
  */
 @Composable
 fun CalorieHero(
     consumed: Nutrients,
     goals: NutrientGoals,
+    weekKcal: List<Double>,
+    selectedIndex: Int,
+    todayIndex: Int?,
+    isToday: Boolean,
+    loaded: Boolean,
+    onDayClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    loaded: Boolean = true,
-    onMacroClick: (NutrientField) -> Unit = {},
+    parallax: () -> Float = { 0f },
+    streak: Int = 0,
 ) {
     val scheme = MaterialTheme.colorScheme
     val left = goals.calories - consumed.calories
-    val fraction = if (goals.calories > 0) (consumed.calories / goals.calories).toFloat() else 0f
     val over = left < 0
-    val pct = if (goals.calories > 0) ((consumed.calories / goals.calories) * 100).roundToInt() else 0
+    val pct = if (goals.calories > 0) (consumed.calories / goals.calories * 100).roundToInt() else 0
+    val logged = weekKcal.filter { it > 0 }
+    val weekAvg = if (logged.isEmpty()) 0.0 else logged.average()
 
-    Column(modifier.fillMaxWidth()) {
-        Text(
-            if (over) "OVER BY" else "REMAINING",
-            style = AppText.eyebrow,
-            color = scheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(Spacing.xs))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                if (loaded) grouped(abs(left)) else "\u2014",
-                style = AppText.numberXXL,
-                // The accent is reserved for data that is on track. A number
-                // that is merely large is not news, so it reads in the normal
-                // foreground; only going over earns a colour.
-                color = if (over) scheme.error else scheme.onSurface,
-            )
-            Spacer(Modifier.width(Spacing.s))
-            Text(
-                "kcal",
-                style = AppText.bodyS,
-                color = scheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = Spacing.s),
-            )
-        }
-
-        Spacer(Modifier.height(Spacing.l))
-        Meter(
-            fraction = if (loaded) fraction else 0f,
-            color = if (over) scheme.error else scheme.primary,
-            height = 2.dp,
-        )
-        Spacer(Modifier.height(Spacing.s))
-        Row(Modifier.fillMaxWidth()) {
-            HeroColumn(
-                "Eaten",
-                if (loaded) grouped(consumed.calories) else "\u2014",
-                if (loaded) "$pct%" else null,
-                Modifier.weight(1f),
-            )
-            HeroColumn(
-                "Target",
-                if (loaded) grouped(goals.calories) else "\u2014",
-                null,
-                Modifier.weight(1f),
-                alignEnd = true,
-            )
-        }
-
-        Spacer(Modifier.height(Spacing.l))
-        // The field itself, not its key: the receiver wants a NutrientField
-        // either way, and resolving it here means a bad key fails loudly at
-        // first composition instead of arriving as a null nobody checks.
-        MacroLegendRow("Carbs", consumed.carbs, goals.carbs, MacroCarbs) {
-            onMacroClick(NutrientFieldsByKey.getValue("carbs"))
-        }
-        MacroLegendRow("Protein", consumed.protein, goals.protein, MacroProtein) {
-            onMacroClick(NutrientFieldsByKey.getValue("protein"))
-        }
-        MacroLegendRow("Fat", consumed.fat, goals.fat, MacroFat) {
-            onMacroClick(NutrientFieldsByKey.getValue("fat"))
-        }
-        MacroLegendRow("Fiber", consumed.fiber, goals.fiber, MacroFiber) {
-            onMacroClick(NutrientFieldsByKey.getValue("fiber"))
-        }
-    }
-}
-
-/** `EATEN` / `2 981` — shot 4's two labelled columns under the bar. */
-@Composable
-private fun HeroColumn(
-    label: String,
-    value: String,
-    caption: String?,
-    modifier: Modifier = Modifier,
-    alignEnd: Boolean = false,
-) {
     Column(
-        modifier,
-        horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.lg + 4.dp))
+            // Static mesh: an endless animation here redrew Today (and the
+            // blurred bar over it) every frame, even with nothing changing.
+            .meshGradient(animate = false, parallax = parallax)
+            .dotTexture(color = scheme.onSurface.copy(alpha = 0.10f), parallax = parallax)
+            .padding(20.dp)
+            // Slight parallax: the colour field and dots drift slower than the
+            // card as it scrolls away, and the content fades a touch.
+            .graphicsLayer {
+                // As the card scrolls away its content sinks at 40% of the
+                // scroll, shrinks a touch and fades — while the colour field
+                // and dots move at their own speeds behind it.
+                val p = parallax()
+                val progress = (p / size.height).coerceIn(0f, 1f)
+                translationY = p * 0.4f
+                scaleX = 1f - 0.08f * progress
+                scaleY = 1f - 0.08f * progress
+                alpha = (1f - progress * 1.4f).coerceIn(0f, 1f)
+            }
     ) {
-        Text(
-            label.uppercase(),
-            style = AppText.eyebrow,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, style = AppText.numberM, color = MaterialTheme.colorScheme.onSurface)
-            if (caption != null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (isToday) "Eaten today" else "Eaten that day",
+                style = AppText.eyebrow,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            // The streak, up top where it is seen first.
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(Radius.pill))
+                    .background(cardColor().copy(alpha = 0.75f))
+                    .padding(horizontal = Spacing.m, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Lucide.Flame, contentDescription = null, tint = Rich.Streak.ink, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(Spacing.xs))
+                Text(
+                    "$streak",
+                    style = AppText.label,
+                    color = scheme.onSurface,
+                    modifier = Modifier.semantics { contentDescription = "$streak day streak" },
+                )
+            }
+            if (loaded) {
                 Spacer(Modifier.width(Spacing.s))
                 Text(
-                    caption,
-                    style = AppText.bodyS,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    "$pct% of goal",
+                    style = AppText.label,
+                    color = scheme.onSurface,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(Radius.pill))
+                        .background(cardColor().copy(alpha = 0.75f))
+                        .padding(horizontal = Spacing.m, vertical = 6.dp),
                 )
             }
         }
+        Spacer(Modifier.height(Spacing.xs))
+        Row(verticalAlignment = Alignment.Bottom) {
+            if (loaded) {
+                AnimatedCount(
+                    value = consumed.calories.roundToInt(),
+                    style = AppText.numberXXL,
+                    color = scheme.onSurface,
+                )
+            } else {
+                Text("—", style = AppText.numberXXL, color = scheme.onSurface)
+            }
+            Text(
+                " kcal",
+                style = AppText.titleM,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+
+        Spacer(Modifier.height(Spacing.l))
+        WeekBars(
+            values = weekKcal,
+            goal = goals.calories,
+            selectedIndex = selectedIndex,
+            todayIndex = todayIndex,
+            onDayClick = onDayClick,
+        )
+
+        Spacer(Modifier.height(Spacing.l))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(scheme.onSurface.copy(alpha = 0.08f))
+        )
+        Spacer(Modifier.height(Spacing.m))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            // What's left now sits here; past the goal it becomes "Over" in red.
+            HeroStat(
+                if (over) "Over" else "Left",
+                if (loaded) grouped(abs(left)) else "—",
+                Modifier.weight(1f),
+                color = if (over) scheme.error else scheme.onSurface,
+            )
+            HeroDivider()
+            HeroStat("Goal", if (loaded) grouped(goals.calories) else "—", Modifier.weight(1f))
+            HeroDivider()
+            HeroStat("Week avg", if (weekAvg > 0) grouped(weekAvg) else "—", Modifier.weight(1f))
+        }
     }
 }
 
+@Composable
+private fun HeroStat(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Column(modifier.padding(horizontal = Spacing.s)) {
+        Text(label, style = AppText.eyebrow, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(2.dp))
+        Text(value, style = AppText.numberM, color = color)
+    }
+}
+
+@Composable
+private fun HeroDivider() {
+    Box(
+        Modifier
+            .width(1.dp)
+            .fillMaxHeight()
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))
+    )
+}
+
 /**
- * `CARBS · 468 g` over its own hairline. Tapping it opens "Rich in…" for that
- * macro.
- *
- * The label is an eyebrow rather than body text, so the row reads label-then-
- * number instead of two competing words, and the number gets the weight.
- *
- * **The padding is the tap target.** The row's own content is about 26dp tall —
- * an eyebrow, a number and a 2dp meter — which is half of [Sizes.touchTarget].
- * Rather than force the row to 48dp and open the hero up by 40dp, the 12dp
- * spacers that used to sit *between* the rows moved inside them as 8dp of
- * vertical padding, so the target grew to ~42dp while the gap a reader sees
- * only went from 12dp to 16dp. Full-bleed width does the rest: there is no
- * horizontal aim involved, unlike the heatmap rows this gesture replaces.
+ * Seven rounded bars against a dashed goal line. Bars grow from zero on first
+ * show and re-grow when the week changes. Days after today draw as a stub and
+ * ignore taps.
  */
 @Composable
-private fun MacroLegendRow(
-    label: String,
-    value: Double,
+private fun WeekBars(
+    values: List<Double>,
     goal: Double,
-    color: Color,
-    onClick: () -> Unit,
+    selectedIndex: Int,
+    todayIndex: Int?,
+    onDayClick: (Int) -> Unit,
 ) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = scheme.tertiary
+    val ink = scheme.onSurface.copy(alpha = 0.72f)
+    val stub = scheme.onSurface.copy(alpha = 0.12f)
+    val goalLine = scheme.onSurface.copy(alpha = 0.28f)
+    val scale = maxOf(goal * 1.15, values.maxOrNull() ?: 0.0, 1.0)
+    val lastTappable = todayIndex ?: 6
+
+    val grow = remember { Animatable(0f) }
+    LaunchedEffect(values) {
+        grow.snapTo(0f)
+        grow.animateTo(1f, tween(700, easing = FastOutSlowInEasing))
+    }
+
     Column(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = Spacing.s)
+        Modifier.semantics {
+            contentDescription = "This week's calories: " +
+                values.mapIndexed { i, v -> "${DAY_INITIALS[i]} ${v.roundToInt()}" }.joinToString()
+        }
     ) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Box(Modifier.size(6.dp).clip(RoundedCornerShape(1.dp)).background(color))
-            Spacer(Modifier.width(Spacing.s))
-            Text(
-                label.uppercase(),
-                style = AppText.eyebrow,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                "${value.roundToInt()}",
-                style = AppText.numberM,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                " / ${goal.roundToInt()} g",
-                style = AppText.bodyS,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .height(110.dp)
+                .pointerInput(lastTappable) {
+                    detectTapGestures { pos ->
+                        val i = (pos.x / (size.width / 7f)).toInt().coerceIn(0, 6)
+                        if (i <= lastTappable) onDayClick(i)
+                    }
+                }
+        ) {
+            val slot = size.width / 7f
+            val barW = slot * 0.46f
+            val r = CornerRadius(barW / 2.4f, barW / 2.4f)
+            if (goal > 0) {
+                val y = size.height * (1f - (goal / scale).toFloat())
+                drawLine(
+                    color = goalLine,
+                    start = Offset(0f, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())),
+                )
+            }
+            values.forEachIndexed { i, v ->
+                val x = slot * i + (slot - barW) / 2f
+                val future = i > lastTappable
+                val h = if (v <= 0 || future) 4.dp.toPx()
+                else (size.height * (v / scale).toFloat() * grow.value).coerceAtLeast(6.dp.toPx())
+                drawRoundRect(
+                    color = when {
+                        future || v <= 0 -> stub
+                        i == selectedIndex -> accent
+                        else -> ink
+                    },
+                    topLeft = Offset(x, size.height - h),
+                    size = Size(barW, h),
+                    cornerRadius = r,
+                )
+            }
         }
         Spacer(Modifier.height(Spacing.s))
-        Meter(
-            fraction = if (goal > 0) (value / goal).toFloat() else 0f,
-            color = color,
-            height = 2.dp,
-        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            DAY_INITIALS.forEachIndexed { i, d ->
+                Text(
+                    d,
+                    style = if (i == selectedIndex) AppText.eyebrow.copy(fontWeight = FontWeight.Bold) else AppText.eyebrow,
+                    color = if (i == selectedIndex) scheme.onSurface else scheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }

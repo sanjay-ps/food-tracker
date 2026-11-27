@@ -60,16 +60,15 @@ fun FoodRow(
             .padding(horizontal = Spacing.gutter, vertical = Spacing.m),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val category = FoodCategory.fromName(food.category)
         Box(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                .background(com.example.foodtracker.ui.components.atoms.cardColor()),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = category.emoji(),
+                text = food.emoji(),
                 style = AppText.titleM,
             )
         }
@@ -93,19 +92,4 @@ fun FoodRow(
         }
         trailing()
     }
-}
-
-private fun FoodCategory.emoji(): String = when (this) {
-    FoodCategory.SouthIndian -> "🥞"
-    FoodCategory.NorthIndian -> "🍛"
-    FoodCategory.Snack -> "🍪"
-    FoodCategory.Beverage -> "🥤"
-    FoodCategory.Dairy -> "🥛"
-    FoodCategory.Fruit -> "🍎"
-    FoodCategory.Vegetable -> "🥦"
-    FoodCategory.Grain -> "🌾"
-    FoodCategory.Protein -> "🥚"
-    FoodCategory.Packaged -> "📦"
-    FoodCategory.Custom -> "✏️"
-    FoodCategory.Other -> "🍽️"
 }

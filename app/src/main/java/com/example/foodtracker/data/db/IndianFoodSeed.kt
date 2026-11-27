@@ -68,8 +68,11 @@ object IndianFoodSeed {
      * cold start the repository will run `refreshSeedIfStale()`, which updates
      * every seeded food in place by name — preserving the user's log history,
      * favourites, weight entries, and custom foods.
+     *
+     * Covers `assets/food_catalogue.json` too: bump it when that file changes,
+     * so existing installs pick up added or corrected catalogue foods.
      */
-    const val SEED_VERSION = 23
+    const val SEED_VERSION = 24
 
     private fun food(
         name: String,

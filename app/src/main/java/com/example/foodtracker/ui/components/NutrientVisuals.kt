@@ -48,15 +48,15 @@ fun NutrientField.color(): Color = when (key) {
  * The status palette. Only two states are allowed to be loud, and both of them
  * mean something has gone past a cap.
  *
- * [NutrientStatus.Headroom] is `outline`, not a success colour: a limit under
+ * [NutrientStatus.Headroom] is `outline`, not the positive green (`secondary`): a limit under
  * its cap is unremarkable, and painting it green would make a day with no
  * sodium look like an achievement.
  */
 @Composable
 fun NutrientStatus.color(): Color = when (this) {
-    NutrientStatus.Unmet -> MaterialTheme.colorScheme.outlineVariant
-    NutrientStatus.Partial -> MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
-    NutrientStatus.Met -> MaterialTheme.colorScheme.primary
+    NutrientStatus.Unmet -> MaterialTheme.colorScheme.surfaceContainerHighest
+    NutrientStatus.Partial -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.40f)
+    NutrientStatus.Met -> MaterialTheme.colorScheme.secondary
     NutrientStatus.Headroom -> MaterialTheme.colorScheme.outline
     NutrientStatus.Over -> StatusOver
     NutrientStatus.FarOver -> MaterialTheme.colorScheme.error
@@ -76,5 +76,5 @@ fun NutrientStatus.color(): Color = when (this) {
  */
 @Composable
 fun NutrientStatus.meterColor(): Color =
-    if (this == NutrientStatus.Unmet) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+    if (this == NutrientStatus.Unmet) MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)
     else color()

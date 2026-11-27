@@ -1,18 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App theme. Compose owns the visual style so this is intentionally
-         minimal; only system-chrome attributes live here.
-
-         Dark parent and `windowLightStatusBar=false` are pinned rather than
-         left to a values-night override: the app no longer follows the system
-         setting, so a light variant would only ever
-         be wrong. The matching values-night copies of this file and colors.xml
-         were deleted for the same reason. -->
-    <style name="Theme.FoodTracker" parent="android:Theme.Material.NoActionBar">
+         minimal; only system-chrome attributes live here. Light by default,
+         with a values-night override, matching the Compose theme. -->
+    <style name="Theme.FoodTracker" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/launcher_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
     </style>
 
     <!-- Splash theme using AndroidX core-splashscreen. The system shows this
@@ -20,7 +15,8 @@
          postSplashScreenTheme below. -->
     <style name="Theme.FoodTracker.SplashScreen" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <!-- A light splash: the ink-and-green mark on its own, no dark tile. -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
         <item name="postSplashScreenTheme">@style/Theme.FoodTracker</item>
     </style>
 </resources>

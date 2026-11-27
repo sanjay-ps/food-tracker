@@ -1,48 +1,38 @@
 package com.example.foodtracker.ui.components.serving
 
-import androidx.compose.foundation.horizontalScroll
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Droplet
+import com.composables.icons.lucide.Flame
+import com.composables.icons.lucide.Sparkles
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.example.foodtracker.data.CookingOil
 import com.example.foodtracker.data.OilAmount
 import com.example.foodtracker.data.StyleOption
 import com.example.foodtracker.data.db.FoodEntity
-import com.example.foodtracker.ui.components.HapticFilterChip
 import com.example.foodtracker.ui.theme.AppText
 import com.example.foodtracker.ui.theme.Spacing
 
 /**
- * *How it's made*.
+ * *How it's made*: each preparation choice as a tile that opens its options —
+ * the same tiles as the bottom bar, in an even grid.
  *
- * Two axes, one heading. They used to be two titled sections, "Cooked in" and
- * "Made with", which read as two separate decisions when they are one: *how was
- * this prepared*. Here they are labelled sub-rows, and a food that offers only
- * one of them simply shows one row.
- *
- * **The binary-style rule is kept exactly as it was**, because it is right:
- * "Plain" is the absence of an addition, not a peer of it. When the axis is
- * binary — one plain option, one addition — there is nothing to choose
- * *between*, only something to switch on, so it renders as a single checkable
- * toggle and off means plain. An axis with two or more additions is a genuine
- * either/or (you cannot have a ghee roast *and* a butter roast), so that falls
- * back to the full exclusive set with Plain shown, rather than silently
- * dropping options a toggle cannot express.
- *
- * **The oil amount is a third row, not more oil chips.** "Cooked in" swaps one
+ * **The oil amount is its own choice, not more oil options.** "Cooked in" swaps one
  * fat for another at the same weight and so never moves calories; "Oil used"
  * changes the weight and so always does. Putting them on one row would make a
  * single tap sometimes re-price the dish and sometimes not, with nothing on
@@ -68,106 +58,57 @@ internal fun PreparationBlock(
     onOilAmountChange: (OilAmount) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxWidth()) {
+    val choices = buildList {
         if (food.usesCookingOil()) {
-            SubLabel("Cooked in")
-            ChipRow {
-                CookingOil.optionsFor(food.defaultOil).forEach { option ->
-                    HapticFilterChip(
-                        selected = option == oil,
-                        onClick = { onOilChange(option) },
-                        label = { Text(option.label, maxLines = 1) },
-                    )
-                }
-            }
+            val options = CookingOil.optionsFor(food.defaultOil)
+            add(Choice("Cooked in", oil.label, Lucide.Droplet, options.map { it.label }, options.indexOf(oil)) { onOilChange(options[it]) })
         }
-
-        // A third row, and the only one that moves the calorie figure — see
-        // [OilAmount] for why that is a reason to keep it separate from "Cooked
-        // in" rather than a reason to merge them. Labelled "Oil used" because
-        // "Cooked in: Palmolein / Oil: Light" reads as two answers to one
-        // question; this way the first row says what was in the pan and the
-        // second says how much of it ended up in the dish.
+        // The only axis that moves calories, so it stays its own choice — see [OilAmount].
         if (food.usesOilAmountAxis()) {
-            Spacer(Modifier.height(Spacing.m))
-            SubLabel("Oil used")
-            ChipRow {
-                OilAmount.entries.forEach { option ->
-                    HapticFilterChip(
-                        selected = option == oilAmount,
-                        onClick = { onOilAmountChange(option) },
-                        label = { Text(option.label, maxLines = 1) },
-                    )
-                }
-            }
+            val options = OilAmount.entries
+            add(Choice("Oil used", oilAmount.label, Lucide.Flame, options.map { it.label }, options.indexOf(oilAmount)) { onOilAmountChange(options[it]) })
         }
-
         if (food.hasStyleAxis()) {
-            if (food.usesCookingOil()) Spacer(Modifier.height(Spacing.m))
-            SubLabel("Added")
-            val plain = food.styleOptions.firstOrNull { it.ingredient == null }
-            val additions = food.styleOptions.filter { it.ingredient != null }
-            val isBinary = plain != null && additions.size == 1
-            ChipRow {
-                if (isBinary) {
-                    val addition = additions.first()
-                    val on = style?.ingredient != null
-                    HapticFilterChip(
-                        selected = on,
-                        // `plain!!` is safe by construction: isBinary is only
-                        // true when a plain option exists.
-                        onClick = { onStyleChange(if (on) plain!! else addition) },
-                        label = { Text(addition.label, maxLines = 1) },
-                        leadingIcon = if (on) {
-                            {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            }
-                        } else null,
-                    )
-                } else {
-                    food.styleOptions.forEach { option ->
-                        HapticFilterChip(
-                            selected = option.label == style?.label,
-                            onClick = { onStyleChange(option) },
-                            label = { Text(option.label, maxLines = 1) },
-                        )
-                    }
+            val options = food.styleOptions
+            val current = options.indexOfFirst { it.label == style?.label }.coerceAtLeast(0)
+            add(Choice("Made with", options[current].label, Lucide.Sparkles, options.map { it.label }, current) { onStyleChange(options[it]) })
+        }
+    }
+    Column(modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            choices.chunked(2).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                    // A lone choice takes the full row rather than leaving a hole.
+                    row.forEach { ChoiceTile(it, Modifier.weight(1f)) }
                 }
             }
         }
     }
 }
 
-/**
- * A sub-row label inside the block.
- *
- * It was `bodyS`, on the argument that an eyebrow would make each axis look
- * like a section of its own again. That argument expired when the sections
- * grew rules: a section is now a header *plus a hairline*, so an eyebrow with
- * no rule under it is unambiguously a label within one. House rule 2 asks for
- * eyebrows on labels and it is right to here — "Cooked in" in body text next
- * to "HOW IT'S MADE" in an eyebrow was two registers inside one block.
- */
-@Composable
-private fun SubLabel(text: String) {
-    Text(
-        text.uppercase(),
-        style = AppText.eyebrow,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(Spacing.s))
-}
+/** One preparation axis: its label, the current pick, and the picks on offer. */
+private class Choice(
+    val label: String,
+    val value: String,
+    val icon: ImageVector,
+    val options: List<String>,
+    val selected: Int,
+    val onPick: (Int) -> Unit,
+)
 
 @Composable
-private fun ChipRow(content: @Composable () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-    ) { content() }
+private fun ChoiceTile(choice: Choice, modifier: Modifier) {
+    var open by remember { mutableStateOf(false) }
+    val scheme = MaterialTheme.colorScheme
+    Box(modifier) {
+        FieldTile(label = choice.label, value = choice.value, icon = choice.icon, onClick = { open = true })
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = scheme.surfaceContainerHigh) {
+            choice.options.forEachIndexed { i, text ->
+                MenuLine(text, picked = i == choice.selected) {
+                    choice.onPick(i)
+                    open = false
+                }
+            }
+        }
+    }
 }

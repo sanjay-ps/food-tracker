@@ -1,9 +1,34 @@
 package com.example.foodtracker.ui.components.serving
 
+import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.ChevronUp
+import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.Lucide
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
+import kotlinx.coroutines.flow.map
+import androidx.compose.runtime.collectAsState
+import com.example.foodtracker.ui.LocalAppContainer
+import com.example.foodtracker.domain.GoalCalculator
+import com.example.foodtracker.data.FoodCatalogue
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -11,7 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import com.example.foodtracker.ui.components.atoms.AppModalSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -28,7 +53,6 @@ import com.example.foodtracker.data.ServingVariant
 import com.example.foodtracker.data.StyleOption
 import com.example.foodtracker.data.db.FoodEntity
 import com.example.foodtracker.ui.components.atoms.AppDivider
-import com.example.foodtracker.ui.components.atoms.Section
 import com.example.foodtracker.ui.theme.AppText
 import com.example.foodtracker.ui.theme.Radius
 import com.example.foodtracker.ui.theme.Spacing
@@ -148,6 +172,9 @@ fun ServingSheet(
     modifier: Modifier = Modifier,
     confirmText: String = "Add to diary",
     subtitle: String? = null,
+    /** When it was eaten, a tile in the bottom bar. Null (planning) hides it. */
+    eatenAt: java.time.LocalTime? = null,
+    onEatenAtChange: (java.time.LocalTime) -> Unit = {},
     /**
      * The cooking fat to price this entry in. Null means "whatever this food
      * remembers", which is what every caller with no opinion should pass.
@@ -164,7 +191,7 @@ fun ServingSheet(
     oilAmount: OilAmount? = null,
     onOilAmountChange: (OilAmount) -> Unit = {},
     /**
-     * Whether the footer carries the meal chip.
+     * Whether the bottom bar offers the meal.
      *
      * False for the plan editor, which chooses between five slots rather than
      * four meals (see [com.example.foodtracker.data.PlanSlot]) and so renders
@@ -193,6 +220,11 @@ fun ServingSheet(
     val effectiveOilAmount = oilAmount ?: food.preselectedOilAmount()
     val nutrients =
         food.nutrientsPer100g(effectiveOil, effectiveStyle, effectiveOilAmount) * (grams / 100.0)
+    val made = remember(food.name) { FoodCatalogue.madeOf(food.name)?.takeIf { it.isNotBlank() } }
+    // Today's targets, so the hero and tiles can say how much of the day this is.
+    val profileStore = LocalAppContainer.current.profileStore
+    val goals by remember(profileStore) { profileStore.profile.map(GoalCalculator::goalsFor) }
+        .collectAsState(initial = null)
 
     // The flash baseline is captured in the chip's own click handler, where
     // `nutrients` is still the pre-change value — reconstructing "what it was"
@@ -208,19 +240,51 @@ fun ServingSheet(
         flash = PrepFlash(before = nutrients, token = (flash?.token ?: 0) + 1)
     }
 
-    ModalBottomSheet(
+    AppModalSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet),
     ) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
+        // Opens compact — name, hero, a "What's in it" row and the inputs — and
+        // the sheet is sized to that. Dragging up anywhere on it (or tapping the
+        // row) opens the details, and the sheet grows to fit them.
+        var showDetails by rememberSaveable { mutableStateOf(false) }
+        val dragToOpen = with(LocalDensity.current) { DRAG_TO_OPEN.toPx() }
+        // imePadding: typing grams in the bottom bar lifts it above the keyboard.
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .pointerInput(showDetails) {
+                    if (showDetails) return@pointerInput
+                    // Watches drags without consuming them, so dragging down
+                    // still dismisses the sheet as usual.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        var dy = 0f
+                        while (true) {
+                            val change = awaitPointerEvent(PointerEventPass.Initial).changes
+                                .firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) break
+                            dy += change.position.y - change.previousPosition.y
+                            if (dy < -dragToOpen) {
+                                showDetails = true
+                                break
+                            }
+                        }
+                    }
+                }
+                .navigationBarsPadding()
+                .imePadding(),
+        ) {
             SheetHeader(
                 name = food.name,
                 brand = food.brand,
                 subtitle = subtitle,
                 nutrients = nutrients,
+                goals = goals,
+                made = made,
             )
             AppDivider()
 
@@ -228,30 +292,15 @@ fun ServingSheet(
                 modifier = Modifier
                     .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = Spacing.gutter, vertical = Spacing.l),
+                    .padding(horizontal = Spacing.gutter, vertical = Spacing.m),
             ) {
                 if (extraBlock != null) {
                     extraBlock()
                     Spacer(Modifier.height(Spacing.xxl))
                 }
 
-                Section("How much") {
-                    AmountRow(
-                        food = food,
-                        variant = variant,
-                        servings = servings,
-                        onVariantChange = onVariantChange,
-                        onServingsChange = onServingsChange,
-                    )
-                }
-
-                if (showsOil || showsStyle || showsOilAmount) {
-                    Spacer(Modifier.height(Spacing.xxl))
-                    // One heading, two axes. "Cooked in" and "Made with" were
-                    // two headings answering the same question — how was this
-                    // prepared — and the style axis read oddly as a titled
-                    // section of its own when it is usually a single toggle.
-                    Section("How it's made") {
+                if (showDetails && (showsOil || showsStyle || showsOilAmount)) {
+                    PageSection("How it's made") {
                         PreparationBlock(
                             food = food,
                             oil = effectiveOil,
@@ -264,27 +313,19 @@ fun ServingSheet(
                             },
                         )
                     }
+                    Spacer(Modifier.height(Spacing.xxl))
                 }
-
-                Spacer(Modifier.height(Spacing.xxl))
-                // The head's trailing slot carries this section's summary
-                // figure, as rule 1 asks — here it is what the eight numbers
-                // underneath are *of*, which is the one thing a reader has to
-                // hold in mind to use them and the one thing they cannot read
-                // off the grid itself.
-                Section(
-                    "What's in it",
-                    trailing = {
-                        Text(
-                            "per ${grams.toInt()} g",
-                            style = AppText.bodyS,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                ) {
+                DetailsHeader(
+                    expanded = showDetails,
+                    trailing = "per ${grams.toInt()} g",
+                    onToggle = { showDetails = !showDetails },
+                )
+                if (showDetails) {
+                    Spacer(Modifier.height(Spacing.m))
                     LivePreview(
                         nutrients = nutrients,
                         previous = flash?.before,
+                        goals = goals,
                         showFatDetail = showsOil || showsStyle,
                     )
                 }
@@ -292,9 +333,16 @@ fun ServingSheet(
 
             AppDivider()
             SheetFooter(
+                food = food,
+                variant = variant,
+                servings = servings,
+                onVariantChange = onVariantChange,
+                onServingsChange = onServingsChange,
                 meal = meal,
                 onMealChange = onMealChange,
-                showMealChip = showMealChip,
+                showMeal = showMealChip,
+                eatenAt = eatenAt,
+                onEatenAtChange = onEatenAtChange,
                 confirmText = confirmText,
                 onConfirm = onConfirm,
                 onDelete = onDelete,
@@ -304,3 +352,51 @@ fun ServingSheet(
     }
 }
 
+/**
+ * A titled block straight on the sheet, no card: the sheet is already a
+ * surface, and cards inside it made the tiles a box in a box in a box.
+ */
+@Composable
+private fun PageSection(
+    title: String,
+    trailing: @Composable (RowScope.() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = AppText.titleM, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+            trailing?.invoke(this)
+        }
+        Spacer(Modifier.height(Spacing.m))
+        content()
+    }
+}
+
+/** How far an upward drag on the compact sheet goes before it opens the details. */
+private val DRAG_TO_OPEN = 24.dp
+
+/**
+ * "What's in it", which also opens and closes the details: "Show ⌄" while
+ * they are hidden, the serving weight and ⌃ once open.
+ */
+@Composable
+private fun DetailsHeader(expanded: Boolean, trailing: String, onToggle: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 40.dp)
+            .clickable(onClickLabel = if (expanded) "Hide details" else "Show details", onClick = onToggle),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("What's in it", style = AppText.titleM, color = scheme.onSurface, modifier = Modifier.weight(1f))
+        Text(if (expanded) trailing else "Show", style = AppText.bodyS, color = scheme.onSurfaceVariant)
+        Spacer(Modifier.width(Spacing.xs))
+        Icon(
+            if (expanded) Lucide.ChevronUp else Lucide.ChevronDown,
+            contentDescription = null,
+            tint = scheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}

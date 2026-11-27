@@ -72,6 +72,8 @@ class FoodRepository(
 
     // ----- Foods -----
     fun observeAllFoods(): Flow<List<FoodEntity>> = foodDao.observeAll()
+    fun observeFoodsPage(limit: Int): Flow<List<FoodEntity>> = foodDao.observeAllPaged(limit)
+    fun observeVisibleFoodCount(): Flow<Int> = foodDao.observeVisibleCount()
     fun searchFoods(query: String): Flow<List<FoodEntity>> = foodDao.search(query)
     fun observeFavouriteFoods(): Flow<List<FoodEntity>> = foodDao.observeFavourites()
     suspend fun upsertFood(food: FoodEntity): Long = foodDao.upsert(food)
@@ -271,9 +273,10 @@ class FoodRepository(
     }
 
     /** Returns true if the seed was just inserted (i.e. table was empty). */
-    suspend fun seedIfEmpty(): Boolean {
+    /** [seed] is [IndianFoodSeed.ALL] plus the [FoodCatalogue] foods. */
+    suspend fun seedIfEmpty(seed: List<FoodEntity>): Boolean {
         if (foodDao.count() != 0) return false
-        foodDao.upsertAll(IndianFoodSeed.ALL)
+        foodDao.upsertAll(seed)
         return true
     }
 
@@ -285,7 +288,7 @@ class FoodRepository(
      * (id, isFavourite, custom servingVariants if any). Foods missing from the DB
      * are inserted. The user's food logs, weights, and custom additions are untouched.
      */
-    suspend fun refreshSeedIfStale(storedVersion: Int): Boolean {
+    suspend fun refreshSeedIfStale(storedVersion: Int, seed: List<FoodEntity>): Boolean {
         if (storedVersion >= IndianFoodSeed.SEED_VERSION) return false
         // One read and one batched write, not two queries per seeded food. This
         // runs on the first launch after every SEED_VERSION bump, and looking
@@ -321,11 +324,11 @@ class FoodRepository(
         // neither of the foods that were missing — the kind of silent loss that
         // only shows up as a food having vanished.
         val claimedIds = HashSet<Long>()
-        for (fresh in IndianFoodSeed.ALL) {
+        for (fresh in seed) {
             existingByUuid[fresh.clientUuid]?.let { claimedIds.add(it.id) }
         }
 
-        val updated = IndianFoodSeed.ALL.map { fresh ->
+        val updated = seed.map { fresh ->
             // **uuid first, name only as a fallback.** The uuid is this entry's
             // permanent identity, so matching on it is what lets a seeded food
             // be *renamed*: the existing row is found, its name updated, and no
@@ -388,6 +391,8 @@ class FoodRepository(
     // ----- Food log -----
     fun observeLogForDay(epochDay: Long): Flow<List<FoodLogWithFood>> =
         foodLogDao.observeForDay(epochDay)
+
+    fun observeLoggedDays(): Flow<List<Long>> = foodLogDao.observeLoggedDays()
 
     fun observeLogForRange(start: Long, end: Long): Flow<List<FoodLogWithFood>> =
         foodLogDao.observeForRange(start, end)

@@ -52,8 +52,9 @@ import kotlinx.coroutines.flow.Flow
 @Entity(
     tableName = "plan_items",
     indices = [
+        // Also serves food_id lookups and the foreign key — it starts with
+        // food_id — so a separate food_id index was redundant (MIGRATION_12_13).
         Index(value = ["food_id", "meal_type"], unique = true),
-        Index(value = ["food_id"]),
     ],
     foreignKeys = [
         ForeignKey(

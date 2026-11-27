@@ -1,5 +1,22 @@
 package com.example.foodtracker.ui.screens.you
 
+import com.composables.icons.lucide.SunMoon
+import com.example.foodtracker.data.ThemeMode
+import com.example.foodtracker.ui.LocalAppContainer
+import com.example.foodtracker.ui.screens.you.sheets.AppearanceSheet
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.example.foodtracker.ui.components.atoms.staggerIn
+import com.example.foodtracker.ui.navigation.bottomBarClearance
+import com.example.foodtracker.ui.theme.Pastel
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.ListChecks
+import com.composables.icons.lucide.Bell
+import com.composables.icons.lucide.Sparkles
+import com.composables.icons.lucide.Database
+import com.composables.icons.lucide.Shield
+import com.composables.icons.lucide.CookingPot
+import com.composables.icons.lucide.Vibrate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,47 +46,9 @@ import com.example.foodtracker.ui.theme.AppText
 import com.example.foodtracker.ui.theme.Spacing
 
 /**
- * You, rebuilt against `docs/ui-house-rules.md`.
- * The third bottom-bar destination.
- *
- * Merges the old `ProfileScreen` and `SettingsScreen`. Settings rendered every
- * control inline — toggles, an API-key field, a backup list, export buttons, a
- * delete-all dialog — in one 662-line wall you had to scroll past in full to
- * reach anything. This is a list of rows that open a sheet (short) or a page
- * (long), with each row's current value on the right, so the state of all six
- * settings is readable without opening any of them.
- *
- * **The cards are gone.** This page used to be three stacked `AppCard`s and a
- * version line, which is precisely the anatomy the owner's verdict was aimed
- * at: new contents, old silhouette. It is now four [Section]s — PROFILE, GOAL,
- * DAILY TARGETS, APP — each a standing head with a hairline under it and its
- * content bleeding to the screen gutter below.
- *
- * The gap between them is 24dp, not the 32 the first attempt at this used. A
- * bigger gap was the wrong instrument: it cost a third of a screen on a page
- * that is already a scroll and still left one undifferentiated column, because
- * whitespace cannot say where a section *ended*. The rule says it in 1dp, so
- * the gap could come down rather than up.
- *
- * **The row anatomy changed with them.** The sketch adopted reference shot 9's
- * icon-circle row; shot 9 is Direction A and the app chose Direction B. See
- * [SettingRow] for the full argument — in short, once the enclosing card goes,
- * six tinted discs are the only filled shapes left in the column and they take
- * over as the page's structure.
- *
- * **No top-bar back arrow and no bottom bar here.** You is a bar destination,
- * not a page pushed onto one: the host `Scaffold` in the navigation graph owns
- * both, which is also why the four callbacks are the screen's entire contract
- * and nothing in this file knows a route.
- *
- * **There is no Appearance row.** With one theme there is nothing to choose,
- * and phase 1 deleted the palette and Light/Dark/System pickers outright.
- *
- * The goal meter is the old Today banner: it used to be a filled
- * `tertiaryContainer` card at the top of the diary, costing the one screen that
- * most needs vertical room. Goal context belongs beside the goal, and as a
- * progress reading it is the one place on this page house rule 3 lets the
- * accent appear.
+ * You — the third tab: a gradient profile card, the goal, the four headline
+ * targets, and the app settings as icon rows that open a sheet (short) or a
+ * page (long), each showing its current value on the right.
  */
 @Composable
 fun YouScreen(
@@ -88,6 +67,10 @@ fun YouScreen(
     var showAllTargets by remember { mutableStateOf(false) }
     var showAiAutofill by remember { mutableStateOf(false) }
     var showCustomFoods by remember { mutableStateOf(false) }
+    var showAppearance by remember { mutableStateOf(false) }
+    val container = LocalAppContainer.current
+    val themeMode by container.profileStore.themeMode.collectAsStateWithLifecycle(ThemeMode.Light)
+    val scope = rememberCoroutineScope()
 
     // Counted here rather than in the view model's init so the filesystem is
     // only read once the page is on screen — and so the count is right again
@@ -101,16 +84,16 @@ fun YouScreen(
             contentPadding = PaddingValues(
                 start = Spacing.gutter,
                 end = Spacing.gutter,
-                top = Spacing.l,
-                bottom = Spacing.xxxl,
+                top = Spacing.s,
+                bottom = bottomBarClearance(),
             ),
             // 24dp between sections — house rule 1. The hairline under each
             // head is what separates them; the gap only has to keep them from
             // touching.
-            verticalArrangement = Arrangement.spacedBy(Spacing.xxl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
             item("profile") {
-                ProfileHeader(profile = state.profile, onEdit = onOpenEditProfile)
+                ProfileHeader(profile = state.profile, onEdit = onOpenEditProfile, modifier = Modifier.staggerIn(0))
             }
 
             // Omitted rather than rendered empty: an absent item costs no gap,
@@ -118,6 +101,7 @@ fun YouScreen(
             state.goalProgress?.let { progress ->
                 item("goal") {
                     GoalSection(
+                        modifier = Modifier.staggerIn(1),
                         profile = state.profile,
                         progress = progress,
                         fraction = state.goalFraction,
@@ -128,6 +112,7 @@ fun YouScreen(
             item("targets") {
                 Section(
                     title = "Daily targets",
+                    modifier = Modifier.staggerIn(2),
                     // Every section states its total in the same place: four
                     // are shown, and this says how many there are in all.
                     trailing = {
@@ -154,7 +139,7 @@ fun YouScreen(
             }
 
             item("app") {
-                Section("App") {
+                Section("App", Modifier.staggerIn(3)) {
                     // A rule between every row, none around the set and none
                     // under the last: the head's own hairline opens the list
                     // and the next section's head closes it. A border drawn
@@ -162,41 +147,63 @@ fun YouScreen(
                     // one's job (house rule 1).
                     SettingRow(
                         label = "Plan",
+                        icon = Lucide.ListChecks,
+                        pastel = Pastel.Mint,
                         value = state.planSummary,
                         onClick = onOpenPlan,
                     )
                     AppDivider()
                     SettingRow(
                         label = "Reminders",
+                        icon = Lucide.Bell,
+                        pastel = Pastel.Peach,
                         value = state.reminderSummary,
                         onClick = onOpenReminders,
                     )
                     AppDivider()
                     SettingRow(
                         label = "AI autofill",
+                        icon = Lucide.Sparkles,
+                        pastel = Pastel.Lavender,
                         value = state.aiSummary,
                         onClick = { showAiAutofill = true },
                     )
                     AppDivider()
                     SettingRow(
                         label = "Data & backup",
+                        icon = Lucide.Database,
+                        pastel = Pastel.Sky,
                         value = state.backupSummary,
                         onClick = onOpenDataBackup,
                     )
                     AppDivider()
                     SettingRow(
                         label = "Privacy",
+                        icon = Lucide.Shield,
+                        pastel = Pastel.Teal,
                         onClick = onOpenPrivacy,
                     )
                     AppDivider()
                     SettingRow(
                         label = "Custom foods",
+                        icon = Lucide.CookingPot,
+                        pastel = Pastel.Rose,
                         value = state.customFoodCount.toString(),
                         onClick = { showCustomFoods = true },
                     )
                     AppDivider()
+                    SettingRow(
+                        label = "Appearance",
+                        icon = Lucide.SunMoon,
+                        pastel = Pastel.Lavender,
+                        value = themeMode.displayName,
+                        onClick = { showAppearance = true },
+                    )
+                    AppDivider()
                     SettingToggleRow(
                         label = "Haptic feedback",
+                        icon = Lucide.Vibrate,
+                        pastel = Pastel.Sand,
                         checked = state.hapticsEnabled,
                         onChange = vm::setHapticsEnabled,
                     )
@@ -208,7 +215,7 @@ fun YouScreen(
                 // flush-left rules is the only thing on the page that does not
                 // share its left edge, and it reads as a stray.
                 Text(
-                    "Food Tracker ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · offline-first",
+                    "Foodprint ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · offline-first",
                     style = AppText.bodyS,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth().padding(top = Spacing.s),
@@ -232,6 +239,14 @@ fun YouScreen(
             onModelChange = vm::setAiModel,
             onApiKeyChange = vm::setAiApiKey,
             onDismiss = { showAiAutofill = false },
+        )
+    }
+
+    if (showAppearance) {
+        AppearanceSheet(
+            mode = themeMode,
+            onSelect = { scope.launch { container.profileStore.setThemeMode(it) } },
+            onDismiss = { showAppearance = false },
         )
     }
 

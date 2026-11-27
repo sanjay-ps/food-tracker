@@ -1,5 +1,10 @@
 package com.example.foodtracker.ui.screens.trends
 
+import com.example.foodtracker.domain.MealTiming
+import com.example.foodtracker.domain.planWeightPath
+import com.example.foodtracker.domain.paceKgPerWeek
+import com.example.foodtracker.domain.goalReachDay
+import com.example.foodtracker.data.Goal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.foodtracker.data.AllNutrientFields
@@ -101,7 +106,35 @@ data class TrendsUiState(
     val waterBars: List<DailyValue> = emptyList(),
     val waterAvgMl: Int = 0,
     val waterGoalMl: Int = 0,
+
+    // ---- Plan vs actual (time-based, so it can run past today) ----------
+    val rangeStart: Long = 0,
+    val today: Long = 0,
+    /** How far the plan line runs past today. */
+    val forecastEnd: Long = 0,
+    /** Calories on each logged day — days with nothing logged are left out, not zeroed. */
+    val calorieSeries: List<Pair<Long, Double>> = emptyList(),
+    val weightSeries: List<Pair<Long, Double>> = emptyList(),
+    /** The planned weight path from the goal and pace set in onboarding/profile. */
+    val weightPlan: List<Pair<Long, Double>> = emptyList(),
+    val goalReachDay: Long? = null,
+    /** Planned kg/week, negative to lose. */
+    val planRateKgPerWeek: Double = 0.0,
+    /** kg/week your logged average implies against your burn; null until a day is logged. */
+    val paceKgPerWeek: Double? = null,
+
+    // ---- Meal timing -----------------------------------------------------
+    /** Each logged day's meal times, as eating-day minutes (after midnight sorts last). */
+    val timing: List<Pair<Long, List<Int>>> = emptyList(),
 ) {
+    val timingDays: Int get() = timing.size
+    /** Days whose last meal was late (see MealTiming.LATE_FROM). */
+    val lateDays: Int get() = timing.count { (_, m) -> m.last() >= LATE_MINUTE }
+    val avgFirstMinute: Int? get() = timing.takeIf { it.isNotEmpty() }?.map { it.second.first() }?.average()?.roundToInt()
+    val avgLastMinute: Int? get() = timing.takeIf { it.isNotEmpty() }?.map { it.second.last() }?.average()?.roundToInt()
+    /** Average hours between the first and last meal of a day. */
+    val avgWindowHours: Double? get() = timing.takeIf { it.isNotEmpty() }
+        ?.map { (it.second.last() - it.second.first()) / 60.0 }?.average()
     /** Nutrients missed on more than half of the logged days — the card's insight. */
     val chronicallyMissed: Int
         get() = heatmap.count { heatmapLoggedDays > 0 && it.missedDays * 2 > heatmapLoggedDays }
@@ -217,7 +250,40 @@ class TrendsViewModel(
             DailyValue(DateUtil.shortDay(it), (waterByDay[it] ?: 0).toDouble())
         }
 
+        // ---- Plan vs actual ----------------------------------------------
+        // The plan exists from the first day of onboarding, so these cards
+        // never wait for data: they draw the plan and add the days you log.
+        val forecastEnd = today + maxOf(7L, range.days / 3L)
+        val signedRate = when (profile.goal) {
+            Goal.Lose -> -profile.weightChangeRate.kgPerWeek
+            Goal.Gain -> profile.weightChangeRate.kgPerWeek
+            Goal.Maintain -> 0.0
+        }
+        val anchor = weightSorted.firstOrNull()?.let { it.dateEpochDay to it.weightKg }
+            ?: (today to profile.weightKg)
+        val goalKg = profile.goalWeightKg ?: profile.weightKg.takeIf { profile.goal == Goal.Maintain }
+        val weightPlan = planWeightPath(anchor.first, anchor.second, signedRate, goalKg, start, forecastEnd)
+        val pace = if (loggedDays > 0) {
+            paceKgPerWeek(days.sumOf { byDay[it]?.calories ?: 0.0 } / loggedDays, GoalCalculator.tdee(profile))
+        } else null
+
+        // ---- Meal timing -------------------------------------------------
+        val zone = DateUtil.zoneId()
+        val timing = logs.groupBy { it.log.dateEpochDay }.toSortedMap().map { (day, rows) ->
+            day to rows.map { MealTiming.eatingMinute(MealTiming.timeOf(it.log.loggedAtMillis, zone)) }.sorted()
+        }
+
         return TrendsUiState(
+            timing = timing,
+            rangeStart = start,
+            today = today,
+            forecastEnd = forecastEnd,
+            calorieSeries = days.mapNotNull { d -> byDay[d]?.calories?.takeIf { it > 0.0 }?.let { d to it } },
+            weightSeries = weightSorted.map { it.dateEpochDay to it.weightKg },
+            weightPlan = weightPlan,
+            goalReachDay = goalReachDay(anchor.first, anchor.second, signedRate, goalKg),
+            planRateKgPerWeek = signedRate,
+            paceKgPerWeek = pace,
             range = range,
             calories = calories,
             calorieAvg = calorieAvg,
@@ -339,3 +405,6 @@ class TrendsViewModel(
             .sortedByDescending { it.missedDays }
     }
 }
+
+/** MealTiming.LATE_FROM as an eating-day minute. */
+private val LATE_MINUTE = MealTiming.eatingMinute(MealTiming.LATE_FROM)

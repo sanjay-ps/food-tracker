@@ -93,9 +93,12 @@ class FoodTrackerApp : Application() {
     fun initializeForUi() {
         if (!uiInitStarted.compareAndSet(false, true)) return
         appScope.launch {
-            val freshInstall = repository.seedIfEmpty()
+            // The hand-tuned seed plus the extended catalogue in assets; also
+            // primes the catalogue's in-memory ranks and "how it's made" lines.
+            val seed = IndianFoodSeed.ALL + com.example.foodtracker.data.FoodCatalogue.load(this@FoodTrackerApp).foods
+            val freshInstall = repository.seedIfEmpty(seed)
             val storedSeedVersion = profileStore.getSeedVersion()
-            val refreshed = if (!freshInstall) repository.refreshSeedIfStale(storedSeedVersion) else false
+            val refreshed = if (!freshInstall) repository.refreshSeedIfStale(storedSeedVersion, seed) else false
             if (freshInstall || refreshed) {
                 profileStore.setSeedVersion(IndianFoodSeed.SEED_VERSION)
             }

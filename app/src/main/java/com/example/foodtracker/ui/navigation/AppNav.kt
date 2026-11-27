@@ -1,5 +1,14 @@
 package com.example.foodtracker.ui.navigation
 
+import androidx.compose.animation.EnterExitState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.EnterTransition
@@ -7,12 +16,8 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -133,40 +138,20 @@ fun AppNav(
         true -> {
             val backStackEntry by navController.currentBackStackEntryAsState()
             val current = backStackEntry?.destination.barDestination()
-            Scaffold(
-                containerColor = MaterialTheme.colorScheme.background,
-                bottomBar = {
-                    // Leaf pages push onto the current tab's stack and hide the
-                    // bar: a full-bleed camera or a 34-field form has nothing to
-                    // say about which tab you are on.
-                    if (current != null) {
-                        AppBottomBar(
-                            current = current,
-                            onSelect = { navController.toBarDestination(it) },
-                        )
-                    }
-                },
-            ) { inner ->
-                val barPadding = inner.calculateBottomPadding()
+            // The bar floats over the tab screens, which pad their own content
+            // by [bottomBarClearance] so the last card scrolls clear of it.
+            // Leaf pages hide it: a camera or a long form has nothing to say
+            // about which tab you are on.
+            val hazeState = rememberHazeState()
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+            ) {
                 NavHost(
                     navController = navController,
                     startDestination = TodayRoute,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = barPadding)
-                        // Padding moves the content up; it does not tell the
-                        // content *why*. `barPadding` already contains the
-                        // navigation-bar inset, because the bar applied it, but
-                        // a padding modifier consumes nothing — so a screen
-                        // nested in here still reads the full inset and adds it
-                        // a second time. Today's Scaffold has no bottom bar of
-                        // its own, and Material places a bar-less Scaffold's FAB
-                        // at `FabSpacing + contentWindowInsets.bottom`, which is
-                        // why the Log button floated roughly an inset clear of
-                        // the bar instead of the 16dp it should sit at. Consume
-                        // the bottom only: the status-bar inset at the top is
-                        // still each screen's own to apply.
-                        .consumeWindowInsets(PaddingValues(bottom = barPadding)),
+                    modifier = Modifier.fillMaxSize().hazeSource(hazeState),
                     enterTransition = navEnter,
                     exitTransition = navExit,
                     popEnterTransition = navPopEnter,
@@ -175,6 +160,23 @@ fun AppNav(
                     predictivePopExitTransition = navPredictivePopExit,
                 ) {
                     graph(navController, pendingSheet) { pendingSheet = null }
+                }
+                AnimatedVisibility(
+                    visible = current != null,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = slideInVertically { it } + fadeIn(),
+                    exit = slideOutVertically { it } + fadeOut(),
+                ) {
+                    AppBottomBar(
+                        hazeState = hazeState,
+                        current = current,
+                        onSelect = { navController.toBarDestination(it) },
+                        onAdd = {
+                            navController.navigate(LogFoodRoute(MealType.currentForTime().name)) {
+                                launchSingleTop = true
+                            }
+                        },
+                    )
                 }
             }
         }
@@ -285,7 +287,8 @@ private fun NavGraphBuilder.graph(
 
     composable<TodayRoute> {
         TodayScreen(
-            onAddFoodToMeal = { meal -> navController.navigate(LogFoodRoute(meal.name)) },
+            onAddFoodToMeal = { meal, day -> navController.navigate(LogFoodRoute(meal.name, day)) },
+            onOpenYou = { navController.toBarDestination(BarDestination.You) },
             onOpenRichFoods = { key -> navController.navigate(RichFoodsRoute(key)) },
             onOpenAllNutrients = { day -> navController.navigate(AllNutrientsRoute(day)) },
             onOpenPlan = { navController.navigate(PlanTodayRoute) },
@@ -324,6 +327,9 @@ private fun NavGraphBuilder.graph(
     composable<LogFoodRoute> { entry ->
         val route: LogFoodRoute = entry.toRoute()
         LogFoodScreen(
+            // False until the slide-in has finished; the grid waits for it.
+            entered = transition.currentState == EnterExitState.Visible,
+            epochDay = route.epochDay ?: com.example.foodtracker.util.DateUtil.todayEpochDay(),
             initialMeal = MealType.fromName(route.mealType),
             onBack = { navController.popBackStack() },
             onScanBarcode = { navController.navigate(BarcodeRoute) },

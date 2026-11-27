@@ -1,5 +1,34 @@
 package com.example.foodtracker.ui.screens.today.components
 
+import com.example.foodtracker.ui.theme.StatusOver
+import com.example.foodtracker.util.DateUtil
+import com.example.foodtracker.domain.MealTiming
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.Cookie
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Moon
+import com.composables.icons.lucide.Plus
+import com.composables.icons.lucide.Sun
+import com.composables.icons.lucide.Sunrise
+import com.composables.icons.lucide.Trash2
+import com.example.foodtracker.ui.components.atoms.PastelIcon
+import com.example.foodtracker.ui.components.atoms.cardColor
+import com.example.foodtracker.ui.components.atoms.pressable
+import com.example.foodtracker.ui.theme.Pastel
+import com.example.foodtracker.ui.theme.Radius
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -47,29 +76,21 @@ import com.example.foodtracker.ui.theme.AppText
 import com.example.foodtracker.ui.theme.Spacing
 
 /**
- * The day's diary.
- *
- * One section with four rows rather than four cards. The reasoning in the original
- * `MealsSection` docstring was right and is kept: on a normal day two or three
- * meals are empty, and four mostly-empty cards is a screen of borders around
- * nothing.
- *
- * Two behavioural changes land here:
- *  - An entry row is **tappable → edit sheet**. Until this, a wrong serving
- *    meant deleting the row and logging it again; `FoodLogDao` had `insert`
- *    but no `@Update`, which made editing impossible rather than merely absent.
- *  - Delete moved from an always-visible trash icon to **swipe, with undo**.
- *    Four trash icons per meal is four chances to lose data, and they were
- *    live at all times on the screen you scroll past most.
+ * The day's diary: one card, four meal rows, each with a pastel icon, its
+ * total, and a round add button. The current meal is tagged "Now" and opens
+ * by default. Entries are tap-to-edit and swipe-to-delete (undo lives in the
+ * caller's snackbar).
  */
 
 /** Entry rows sit indented under their meal so the hierarchy reads without a box. */
-private val ENTRY_INDENT = 16.dp
+/** Lines an entry up under the meal name, past the 40dp icon and its gap. */
+private val ENTRY_INDENT = 52.dp
 
 @Composable
 fun MealsSection(
     groups: Map<MealType, List<FoodLogWithFood>>,
-    activeMeal: MealType,
+    /** The meal the clock says you are in — null on any day but today. */
+    activeMeal: MealType?,
     totalKcal: Double,
     onAdd: (MealType) -> Unit,
     onEditEntry: (FoodLogWithFood) -> Unit,
@@ -78,7 +99,7 @@ fun MealsSection(
 ) {
     // Which meal is open. Defaults to the one the wall clock says you are in,
     // which on a normal visit is the one you came to look at.
-    var expanded by rememberSaveable { mutableStateOf(activeMeal.name) }
+    var expanded by rememberSaveable { mutableStateOf(activeMeal?.name ?: "") }
     // No enclosing card. The meals are the longest block on the screen, and a
     // border around a list that already has rules between its rows is a second
     // boundary doing the first one's job — structure is hairlines, not
@@ -111,6 +132,20 @@ fun MealsSection(
     }
 }
 
+internal fun MealType.icon(): ImageVector = when (this) {
+    MealType.Breakfast -> Lucide.Sunrise
+    MealType.Lunch -> Lucide.Sun
+    MealType.Snack -> Lucide.Cookie
+    MealType.Dinner -> Lucide.Moon
+}
+
+private fun MealType.pastel(): Pastel = when (this) {
+    MealType.Breakfast -> Pastel.Peach
+    MealType.Lunch -> Pastel.Mint
+    MealType.Snack -> Pastel.Rose
+    MealType.Dinner -> Pastel.Lavender
+}
+
 @Composable
 private fun MealGroup(
     meal: MealType,
@@ -124,51 +159,85 @@ private fun MealGroup(
 ) {
     val scheme = MaterialTheme.colorScheme
     val kcal = rows.sumOf { it.nutrients().calories }
-    // The "now" row is one of the five fills the rules allow, at 35% so it reads as a
-    // highlight rather than as a selected state. Composited against the canvas
-    // rather than left translucent because the entry rows below need an opaque
-    // colour to cover the swipe backdrop with — a 35% row would let the delete
-    // red bleed through at rest.
-    // The 35% primaryContainer wash is gone with the card: on an unenclosed
-    // list a tinted band reads as a selected row, and "now" is a fact about the
-    // clock, not a selection. The accent-coloured label carries it instead.
-    val rowFill = scheme.background
-    Column(Modifier.fillMaxWidth().background(rowFill)) {
+    // Opaque, so the swipe-to-delete backdrop cannot show through at rest.
+    val rowFill = cardColor()
+    val chevron by animateFloatAsState(if (isExpanded) 180f else 0f, label = "mealChevron")
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(rowFill)
+            .animateContentSize()
+    ) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .clickable(enabled = rows.isNotEmpty(), onClick = onToggle)
-                .padding(top = Spacing.m, bottom = Spacing.m),
+                .padding(vertical = Spacing.m),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // No emoji. The app adopted Direction B, whose shots carry none; the
-            // glyphs are the friendly register the plan explicitly refused, and
-            // on a four-row list they are decoration rather than wayfinding.
-            Text(
-                meal.displayName.uppercase(),
-                style = AppText.eyebrow,
-                color = if (isNow) scheme.primary else scheme.onSurfaceVariant,
-            )
-            // No badge. The label above already goes accent-coloured when this
-            // is the current meal, and a filled primaryContainer pill beside it
-            // marked the same fact twice — in the one register house rule 3
-            // reserves for data.
-            Spacer(Modifier.weight(1f))
-            Text(
-                if (rows.isEmpty()) "Nothing yet" else "${grouped(kcal)} kcal · ${rows.size}",
-                style = AppText.bodyS,
-                color = scheme.onSurfaceVariant,
-            )
-            if (rows.isNotEmpty()) {
-                Icon(
-                    if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    tint = scheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = Spacing.xs).size(18.dp),
+            PastelIcon(meal.icon(), meal.pastel())
+            Spacer(Modifier.width(Spacing.m))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(meal.displayName, style = AppText.titleM, color = scheme.onSurface)
+                    if (rows.any { it.isLate() }) {
+                        Spacer(Modifier.width(Spacing.s))
+                        Text(
+                            "Late",
+                            style = AppText.eyebrow,
+                            color = StatusOver,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(Radius.pill))
+                                .background(StatusOver.copy(alpha = 0.12f))
+                                .padding(horizontal = Spacing.s, vertical = 2.dp),
+                        )
+                    }
+                    if (isNow) {
+                        Spacer(Modifier.width(Spacing.s))
+                        Text(
+                            "Now",
+                            style = AppText.eyebrow,
+                            color = scheme.onTertiaryContainer,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(Radius.pill))
+                                .background(scheme.tertiaryContainer)
+                                .padding(horizontal = Spacing.s, vertical = 2.dp),
+                        )
+                    }
+                }
+                Text(
+                    if (rows.isEmpty()) "Nothing yet"
+                    else "${grouped(kcal)} kcal · ${rows.size} ${if (rows.size == 1) "item" else "items"}" +
+                        " · ${MealTiming.label(rows.maxOf { MealTiming.eatingMinute(it.eatenAt()) })}",
+                    style = AppText.bodyS,
+                    color = scheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = onAdd) {
-                Icon(Icons.Default.Add, "Add to ${meal.displayName}", tint = scheme.onSurfaceVariant)
+            if (rows.isNotEmpty()) {
+                Icon(
+                    Lucide.ChevronDown,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    tint = scheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp).rotate(chevron),
+                )
+                Spacer(Modifier.width(Spacing.xs))
+            }
+            Box(
+                Modifier
+                    .size(48.dp)
+                    .semantics { role = Role.Button; contentDescription = "Add to ${meal.displayName}" }
+                    .pressable(scaleTo = 0.85f, onClick = onAdd),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(scheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Lucide.Plus, contentDescription = null, tint = scheme.onSurface, modifier = Modifier.size(18.dp))
+                }
             }
         }
         if (isExpanded) {
@@ -180,6 +249,7 @@ private fun MealGroup(
                     onDelete = { onDeleteEntry(row) },
                 )
             }
+            Spacer(Modifier.height(Spacing.s))
         }
     }
 }
@@ -236,7 +306,7 @@ private fun MealEntryRow(
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Icon(
-                    Icons.Default.Delete,
+                    Lucide.Trash2,
                     contentDescription = null,
                     tint = scheme.onErrorContainer,
                     modifier = Modifier.size(20.dp),
@@ -251,7 +321,7 @@ private fun MealEntryRow(
                 .clickable(onClick = onEdit)
                 .padding(
                     start = ENTRY_INDENT,
-                    end = 0.dp,
+                    end = Spacing.s,
                     top = Spacing.s,
                     bottom = Spacing.s,
                 ),
@@ -267,10 +337,19 @@ private fun MealEntryRow(
             )
             Spacer(Modifier.width(Spacing.s))
             Text(
-                "${countText(row.log.servings)} ×  ·  ${grouped(row.nutrients().calories)} kcal",
+                "${countText(row.log.servings)} ×  ·  ${grouped(row.nutrients().calories)} kcal  ·  ",
                 style = AppText.bodyS,
                 color = scheme.onSurfaceVariant,
+            )
+            Text(
+                MealTiming.label(row.eatenAt()),
+                style = AppText.bodyS,
+                color = if (row.isLate()) StatusOver else scheme.onSurfaceVariant,
             )
         }
     }
 }
+
+private fun FoodLogWithFood.eatenAt() = MealTiming.timeOf(log.loggedAtMillis, DateUtil.zoneId())
+
+private fun FoodLogWithFood.isLate() = MealTiming.isLate(eatenAt())

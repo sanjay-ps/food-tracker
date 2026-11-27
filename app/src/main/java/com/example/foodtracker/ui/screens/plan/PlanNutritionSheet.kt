@@ -138,7 +138,7 @@ fun PlanNutritionSheet(
                 val fields = AllNutrientFields.filter { it.category == category }
                 if (fields.isEmpty()) return@forEach
                 Text(
-                    category.name.uppercase(),
+                    category.name,
                     style = AppText.eyebrow,
                     color = scheme.onSurfaceVariant,
                 )

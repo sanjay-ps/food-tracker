@@ -1,5 +1,9 @@
 package com.example.foodtracker.ui.components.atoms
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -16,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.example.foodtracker.ui.theme.AppText
 import com.example.foodtracker.ui.theme.Radius
 import com.example.foodtracker.ui.theme.Spacing
-import kotlin.math.abs
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -31,16 +35,8 @@ import kotlin.math.roundToInt
 const val NBSP = ' '
 
 /** `2100` → `2 100`. Grouped with a non-breaking space so it never wraps. */
-fun grouped(value: Double): String {
-    val n = value.roundToInt()
-    val digits = abs(n).toString()
-    val out = StringBuilder()
-    digits.forEachIndexed { i, c ->
-        if (i > 0 && (digits.length - i) % 3 == 0) out.append(NBSP)
-        out.append(c)
-    }
-    return if (n < 0) "-$out" else out.toString()
-}
+/** Whole number with comma grouping: `2,468`. */
+fun grouped(value: Double): String = String.format(Locale.US, "%,d", value.roundToInt())
 
 /**
  * Counts, not measurements: `1 ×`, `1.5 ×` — never `1.0 ×`.
@@ -110,4 +106,50 @@ fun AppBadge(
             .background(container)
             .padding(horizontal = Spacing.s, vertical = 2.dp),
     )
+}
+
+/** How loud a [Metric] is. One [Hero] per screen; [Large] in cards; [Medium] in dense rows. */
+enum class MetricSize { Hero, Large, Medium }
+
+/**
+ * The standard "label over a number" block — every figure in the app with a
+ * caption above it uses this, so the same kind of number is always the same
+ * size: label in [AppText.eyebrow], value in the size's number style, unit
+ * trailing on the baseline in the quiet colour.
+ */
+@Composable
+fun Metric(
+    label: String?,
+    value: String,
+    modifier: Modifier = Modifier,
+    unit: String = "",
+    size: MetricSize = MetricSize.Medium,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+) {
+    val valueStyle = when (size) {
+        MetricSize.Hero -> AppText.numberXXL
+        MetricSize.Large -> AppText.numberL
+        MetricSize.Medium -> AppText.numberM
+    }
+    val unitStyle = if (size == MetricSize.Hero) AppText.titleM else AppText.bodyS
+    Column(modifier, horizontalAlignment = horizontalAlignment) {
+        if (label != null) {
+            Text(label, style = AppText.eyebrow, color = labelColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(2.dp))
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, style = valueStyle, color = color, maxLines = 1)
+            if (unit.isNotEmpty()) {
+                Text(
+                    NBSP + unit,
+                    style = unitStyle,
+                    color = labelColor,
+                    maxLines = 1,
+                    modifier = Modifier.padding(bottom = if (size == MetricSize.Hero) 8.dp else 2.dp),
+                )
+            }
+        }
+    }
 }

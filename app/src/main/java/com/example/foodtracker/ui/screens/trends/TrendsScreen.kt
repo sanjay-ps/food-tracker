@@ -1,5 +1,19 @@
 package com.example.foodtracker.ui.screens.trends
 
+import com.example.foodtracker.ui.screens.trends.components.EatingWindowChart
+import com.example.foodtracker.domain.MealTiming
+import com.example.foodtracker.ui.components.PlanChart
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Trash2
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.example.foodtracker.ui.components.atoms.LocalCardColor
+import com.example.foodtracker.ui.components.atoms.staggerIn
+import com.example.foodtracker.ui.navigation.bottomBarClearance
+import com.example.foodtracker.ui.theme.Radius
+import com.example.foodtracker.ui.theme.meshGradient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,8 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,38 +65,12 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Trends, re-cut against the UI house rules.
+ * Trends — the second tab. A pinned range pill, then one card per chart:
+ * calories (on the soft gradient), macros, nutrient consistency, weight and
+ * water. Weigh-ins and water are logged from sheets ([onOpenWeight],
+ * [onOpenWater]) so all history lives here and entry lives anywhere.
  *
- * **It is a destination, not a page.** Trends is one of the three bottom-bar
- * tabs, so it renders no back arrow and no bar of its own:
- * the host `Scaffold` in `AppNav` owns both, and a second `Scaffold` here would
- * double the insets and put a back arrow on a peer destination, which is
- * exactly the thing a bottom bar means you no longer need.
- *
- * **The range control is pinned outside the list.** Changing the window is the
- * one control every section on the page obeys, and burying it in the scroll
- * means scrolling back up to use it — you notice you want 90 days *while*
- * reading the weight chart, which is three sections down.
- *
- * **The page absorbed two screens.** The weight section carries what was
- * `WeightScreen`'s chart and history, and the water section what was
- * `WaterScreen`'s week chart; what you *do* with either — a weigh-in, a glass —
- * is a sheet now ([onOpenWeight], [onOpenWater]). The split is decision 6: all
- * the history in one place, beside the other history, and entry wherever you
- * happen to be.
- *
- * **What the editorial pass changed here, and why.** The five charts used to
- * sit in five `AppCard`s 16dp apart — a stack of rounded hairline boxes, which
- * is the Direction A anatomy the app rejected and the reason the rewrite still read
- * as the old app. They are `Section`s now: a standing head with its summary
- * figure on the baseline, a hairline under the head, then the reading and the
- * chart, open to the 16dp gutter. The charts got the 32dp of width the card
- * insets were taking, each section says what its window amounts to in the same
- * place, and the only thing left with a box around it on this screen is
- * nothing at all.
- *
- * @param onOpenRichFoods opens "Rich in…", optionally preselecting one nutrient
- *        — the heatmap's rows pass the one you are short of.
+ * @param onOpenRichFoods opens "Rich in…", optionally preselecting one nutrient.
  */
 @Composable
 fun TrendsScreen(
@@ -114,40 +100,44 @@ fun TrendsScreen(
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = PaddingValues(
                 top = Spacing.l,
-                bottom = Spacing.xxxl,
+                bottom = bottomBarClearance(),
                 start = Spacing.gutter,
                 end = Spacing.gutter,
             ),
             // 24dp, not 32: every section now carries a rule under its standing
             // head, so the whitespace no longer has to do the separating on its
             // own — house rule 1, and the same value Today uses.
-            verticalArrangement = Arrangement.spacedBy(Spacing.xxl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
             item("calories") {
+                CompositionLocalProvider(LocalCardColor provides Color.Transparent) {
                 ChartCard(
                     title = "Calories",
+                    modifier = Modifier
+                        .staggerIn(0)
+                        .clip(RoundedCornerShape(Radius.lg))
+                        .meshGradient(animate = false),
                     summary = caloriesSummary(state),
-                    insight = caloriesInsight(state),
-                    empty = if (state.calories.hasTrend()) null else NEED_TWO_DAYS,
+                    insight = paceInsight(state),
                     crossfadeKey = state.range,
                 ) {
-                    LineChart(
-                        points = state.calories,
-                        // `calories` is MacroBurned everywhere in the app
-                        // (NutrientVisuals) — the progress screen used the carbs
-                        // amber here, which made the calorie line and the carbs
-                        // segment of the macro chart the same colour.
-                        lineColor = MacroBurned,
+                    PlanChart(
+                        actual = state.calorieSeries,
+                        plan = listOf(state.rangeStart to state.calorieGoal, state.forecastEnd to state.calorieGoal),
+                        start = state.rangeStart,
+                        end = state.forecastEnd,
+                        today = state.today,
+                        color = MacroBurned,
                         unit = "kcal",
-                        referenceLine = state.calorieGoal.takeIf { it > 0 },
-                        referenceLabel = state.calorieGoal.takeIf { it > 0 }
-                            ?.let { "Goal ${grouped(it)} kcal" },
+                        planLabel = "Plan ${grouped(state.calorieGoal)} kcal",
                     )
                 }
+            }
             }
 
             item("macros") {
                 ChartCard(
+                    modifier = Modifier.staggerIn(1),
                     title = "Macros",
                     summary = macrosSummary(state),
                     insight = macrosInsight(state),
@@ -165,6 +155,7 @@ fun TrendsScreen(
 
             item("nutrients") {
                 ChartCard(
+                    modifier = Modifier.staggerIn(2),
                     title = "Nutrient consistency",
                     summary = nutrientSummary(state),
                     insight = nutrientInsight(state),
@@ -195,12 +186,25 @@ fun TrendsScreen(
                 }
             }
 
+            item("timing") {
+                ChartCard(
+                    title = "Meal timing",
+                    modifier = Modifier.staggerIn(3),
+                    summary = state.avgWindowHours?.let { "%.1f h eating window".format(it) },
+                    insight = timingInsight(state),
+                    empty = if (state.timingDays > 0) null else NEED_A_DAY_TIMING,
+                    crossfadeKey = state.range,
+                ) {
+                    EatingWindowChart(days = state.timing, start = state.rangeStart, today = state.today)
+                }
+            }
+
             item("weight") {
                 ChartCard(
+                    modifier = Modifier.staggerIn(3),
                     title = "Weight",
                     summary = weightSummary(state),
-                    insight = weightInsight(state),
-                    empty = if (state.weight.size >= 2) null else NEED_TWO_WEIGH_INS,
+                    insight = weightPlanInsight(state),
                     actionLabel = "Log a weigh-in",
                     onAction = onOpenWeight,
                     crossfadeKey = state.range,
@@ -229,18 +233,24 @@ fun TrendsScreen(
                         }
                     } else null,
                 ) {
-                    LineChart(
-                        points = state.weight,
-                        lineColor = MacroWeight,
+                    PlanChart(
+                        actual = state.weightSeries,
+                        plan = state.weightPlan,
+                        start = state.rangeStart,
+                        end = state.forecastEnd,
+                        today = state.today,
+                        color = MacroWeight,
                         unit = "kg",
-                        referenceLine = state.goalWeightKg,
-                        referenceLabel = state.goalWeightKg?.let { "Goal ${kgText(it)} kg" },
+                        planLabel = state.goalWeightKg?.let { "Plan to ${kgText(it)} kg" }
+                            ?: state.weightPlan.firstOrNull()?.let { "Plan ${kgText(it.second)} kg" }
+                            ?: "Plan",
                     )
                 }
             }
 
             item("water") {
                 ChartCard(
+                    modifier = Modifier.staggerIn(4),
                     title = "Water",
                     summary = waterSummary(state),
                     insight = waterInsight(state),
@@ -286,13 +296,9 @@ private const val HEATMAP_COLLAPSED_ROWS = 6
  */
 private const val CALORIE_DEADBAND = 25
 
-private const val NEED_TWO_DAYS = "Log two or more days in this range to see the trend."
 private const val NEED_A_DAY = "Log a day in this range to see this."
-private const val NEED_TWO_WEIGH_INS = "Log two or more weigh-ins in this range to see the trend."
 
 /** A series only says something once it has two real points to say it with. */
-private fun List<LinePoint>.hasTrend(): Boolean =
-    size >= 2 && any { it.value > 0.0 }
 
 /*
  * The readings, two per section.
@@ -323,25 +329,6 @@ private fun signedKg(deltaKg: Double): String =
 
 private fun caloriesSummary(state: TrendsUiState): String? =
     if (state.calorieAvg <= 0) null else "${grouped(state.calorieAvg.toDouble())} kcal avg"
-
-private fun caloriesInsight(state: TrendsUiState): ChartInsight? {
-    if (state.calorieAvg <= 0 || state.calorieGoal <= 0) return null
-    val delta = state.calorieAvg - state.calorieGoal.roundToInt()
-    val onGoal = abs(delta) <= CALORIE_DEADBAND
-    return ChartInsight(
-        label = "Vs goal",
-        value = signedGrouped(delta),
-        unit = "kcal",
-        caption = if (onGoal) "on goal" else "goal ${grouped(state.calorieGoal)} kcal",
-        tone = when {
-            onGoal -> InsightTone.OnTrack
-            delta > 0 -> InsightTone.Over
-            // Eating under the goal is not crossing a limit, and house rule 3
-            // reserves `error` for exactly that. It reads in the foreground.
-            else -> InsightTone.Neutral
-        },
-    )
-}
 
 private fun macrosSummary(state: TrendsUiState): String? {
     if (state.loggedDays == 0) return null
@@ -384,14 +371,82 @@ private fun nutrientInsight(state: TrendsUiState): ChartInsight? {
 private fun weightSummary(state: TrendsUiState): String? =
     state.latestWeightKg?.let { "${kgText(it)} kg now" }
 
-private fun weightInsight(state: TrendsUiState): ChartInsight? {
-    val change = state.weightChange ?: return null
+/** Average time of the last meal, and how many nights ran late. */
+private fun timingInsight(state: TrendsUiState): ChartInsight? {
+    val last = state.avgLastMinute ?: return null
+    val lateShare = state.lateDays.toDouble() / state.timingDays
     return ChartInsight(
-        label = "Change over ${state.range.label}",
-        value = signedKg(change),
-        unit = "kg",
-        caption = state.goalWeightKg?.let { "goal ${kgText(it)} kg" },
+        label = "Last meal, on average",
+        value = MealTiming.label(last),
+        caption = when (state.lateDays) {
+            0 -> "no late nights"
+            1 -> "1 late night"
+            else -> "${state.lateDays} late nights of ${state.timingDays}"
+        },
+        tone = when {
+            state.lateDays == 0 -> InsightTone.OnTrack
+            lateShare >= 0.5 -> InsightTone.Over
+            else -> InsightTone.Neutral
+        },
     )
+}
+
+private const val NEED_A_DAY_TIMING = "Log a meal in this range to see when you eat."
+
+/** Your logged pace in kg/week (from average calories vs burn) against the plan's. */
+private fun paceInsight(state: TrendsUiState): ChartInsight {
+    val plan = state.planRateKgPerWeek
+    val pace = state.paceKgPerWeek
+        ?: return ChartInsight(
+            label = "Plan",
+            value = grouped(state.calorieGoal),
+            unit = "kcal / day",
+            caption = "log meals to see your pace",
+        )
+    val close = abs(pace - plan) <= 0.15
+    return ChartInsight(
+        label = "At this pace",
+        value = signedKg(pace),
+        unit = "kg / week",
+        caption = "plan ${signedKg(plan)} kg / week",
+        tone = if (close) InsightTone.OnTrack else InsightTone.Neutral,
+    )
+}
+
+/** How far the latest weigh-in is from the plan — or, before two weigh-ins, the plan's target. */
+private fun weightPlanInsight(state: TrendsUiState): ChartInsight? {
+    val latest = state.weightSeries.lastOrNull()
+    val planAtLatest = latest?.let { (day, _) -> planValueAt(state.weightPlan, day) }
+    if (latest != null && planAtLatest != null && state.weightSeries.size >= 2) {
+        val diff = latest.second - planAtLatest
+        return ChartInsight(
+            label = "Vs plan",
+            value = signedKg(diff),
+            unit = "kg",
+            caption = if (abs(diff) <= 0.3) "right on plan" else "plan ${kgText(planAtLatest)} kg",
+            tone = if (abs(diff) <= 0.3) InsightTone.OnTrack else InsightTone.Neutral,
+        )
+    }
+    if (state.planRateKgPerWeek == 0.0) {
+        val hold = state.weightPlan.firstOrNull()?.second ?: return null
+        return ChartInsight(label = "Plan", value = kgText(hold), unit = "kg", caption = "hold steady")
+    }
+    val goal = state.goalWeightKg ?: return null
+    val reach = state.goalReachDay ?: return null
+    return ChartInsight(
+        label = "Plan",
+        value = kgText(goal),
+        unit = "kg",
+        caption = "by ${DateUtil.shortDate(reach)}",
+    )
+}
+
+private fun planValueAt(plan: List<Pair<Long, Double>>, day: Long): Double? {
+    if (plan.size < 2) return null
+    val i = plan.indexOfLast { it.first <= day }.coerceIn(0, plan.size - 2)
+    val (d0, v0) = plan[i]
+    val (d1, v1) = plan[i + 1]
+    return if (d1 == d0) v0 else v0 + (v1 - v0) * (day - d0) / (d1 - d0).toDouble()
 }
 
 private fun waterSummary(state: TrendsUiState): String? =
@@ -445,7 +500,7 @@ private fun WeightHistory(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        DateUtil.formatHeader(entry.dateEpochDay).uppercase(),
+                        DateUtil.formatHeader(entry.dateEpochDay),
                         style = AppText.eyebrow,
                         color = scheme.onSurfaceVariant,
                     )
@@ -467,7 +522,7 @@ private fun WeightHistory(
                 }
                 IconButton(onClick = { onDelete(entry.id) }) {
                     Icon(
-                        Icons.Outlined.DeleteOutline,
+                        Lucide.Trash2,
                         contentDescription = "Delete weigh-in",
                         tint = scheme.onSurfaceVariant,
                     )
