@@ -114,6 +114,6 @@ jobs:
           NAME: ${{ steps.version.outputs.name }}
         run: |
           set -euo pipefail
-          apk="FoodTracker-v$NAME.apk"
+          apk="Foodprint-v$NAME.apk"
           mv app/build/outputs/apk/release/app-release.apk "$apk"
           gh release create "v$NAME" "$apk" --verify-tag --title "v$NAME" --generate-notes
