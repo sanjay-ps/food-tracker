@@ -19,6 +19,10 @@ runs:
     # Signed with the public github-public-release key committed in the repo, so this needs
     # no secrets. USDA_API_KEY is absent here and the build falls back to the public
     # DEMO_KEY, which is rate-limited but works — see app/build.gradle.kts.
+    # chmod first: the executable bit is lost when files reach GitHub through an
+    # upload or a copy rather than a git push.
     - name: Build release APK
       shell: bash
-      run: ./gradlew :app:assembleRelease --stacktrace
+      run: |
+        chmod +x gradlew
+        ./gradlew :app:assembleRelease --stacktrace
